@@ -1,0 +1,6 @@
+{
+    "run_config": "none",
+    "auth_server": "none",
+    "prom_gateway": "none",
+    "seeds": []
+}

@@ -1,0 +1,21 @@
+# Named published corpora: non-secret locations + immutable identity pins.
+# A consumer passes a NAME (Corpus.from_name); the entry carries the URI —
+# including the S3-compatible endpoint for R2 — the manifest identity the
+# reader must verify, and reader cache overrides where the corpus geometry
+# needs them. Credentials come from the environment or an AWS profile,
+# never from this file.
+#
+# The 2**30-token corpora carry reader overrides on purpose: one chunk is
+# 4 GiB, so the library defaults (1 GiB budget, prefetch 2 — sized for
+# 2**26-token chunks) would make the prefetched neighbour and the current
+# chunk evict each other in a re-download loop.
+
+corpora:
+  # No uri on purpose: the location is supplied at run time (the authorizer
+  # hands workers the public URL) so this packaged file never publishes it.
+  fineweb_edu_500B:
+    manifest_identity: "09efda55fcfb06ebb069539520d14fd9e0af9b0de99dfdb8d28baca19b3cf0db"
+    reader:
+      budget_bytes: 6442450944
+      prefetch_depth: 0
+    description: "FineWeb-Edu 500B eos-only (pithos_stream_v1, 2**30 chunks, 511 shards); location supplied at run time"

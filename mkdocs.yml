@@ -1,0 +1,95 @@
+site_name: Agora
+site_description: Documentation for Agora — Pluralis's decentralized pipeline-parallel training system, and the Pluralis-8B collective run.
+site_url: https://pluralis.ai/dev/
+site_author: Pluralis Research
+
+docs_dir: docs
+site_dir: ../.mkdocs-site
+
+theme:
+  name: material
+  language: en
+  font: false                       # use the Pluralis serif stack from custom.css instead of a Google font
+  favicon: images/favicon.png
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.indexes
+    - navigation.path               # breadcrumbs
+    - navigation.footer             # prev/next links at bottom
+    - navigation.top
+    - toc.follow                    # right-rail "On this page" sticky-tracks scroll position
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white      # header bar: white background, dark text
+      accent: custom      # link/highlight color stays Pluralis blue (set via custom.css)
+  icon:
+    logo: material/bank             # Greek-temple silhouette (Agora = classical gathering place)
+    repo: octicons/mark-github-16
+    edit: material/file-edit-outline
+
+extra_css:
+  - assets/custom.css
+
+extra_javascript:
+  - assets/extras.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: false
+      type: date
+      fallback_to_build_date: true
+
+nav:
+  - Pluralis-8B run: index.md
+  - Quick Start:
+    - quick-start/index.md                          # implicit section index
+    - Requirements: quick-start/requirements.md
+    - Running Agora: quick-start/run.md
+    - Points & Leaderboard: quick-start/points.md
+    - Advanced: quick-start/advanced.md
+    - Setup Guides:
+      - quick-start/setup-guides/index.md           # implicit section index
+      - Cloud Options: quick-start/setup-guides/cloud.md
+      - Useful Links: quick-start/setup-guides/useful-links.md
+  - Agora System:
+    - Overview: agora-system/overview.md
+    - Training Architecture: agora-system/training-architecture.md
+    - Startup Sequence: agora-system/startup-sequence.md
+    - Memory & Communication: agora-system/memory-communication.md
+    - Fault Tolerance: agora-system/fault-tolerance.md
+    - Research Foundations: agora-system/research-foundations.md
+
+repo_url: https://github.com/PluralisResearch/agora
+repo_name: PluralisResearch/agora
+
+copyright: Copyright &copy; Pluralis Research

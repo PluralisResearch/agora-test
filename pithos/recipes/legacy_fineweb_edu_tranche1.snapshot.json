@@ -1,0 +1,22 @@
+{
+  "entry_type": "provenance_snapshot",
+  "recipe": "legacy_fineweb_edu_tranche1",
+  "status": "built EXTERNALLY by pretrain-data (colonnade) — NOT built by pithos; recorded only so readers can consume that corpus and so its pins are never silently reused",
+  "format": "colonnade_stream_v1 (LEGACY — the approved pithos default is pithos_stream_v1)",
+  "dataset": "HuggingFaceFW/fineweb-edu",
+  "revision": "87f09149ef4734204d70ed1d046ddc9ca3f2b8f9",
+  "tokenizer": "NousResearch/Meta-Llama-3.1-8B",
+  "tokenizer_rev": "1f47e50cdbe801ad8a5174156ec3a0655108fb9f",
+  "eos_id": 128001,
+  "vocab_cap": 128512,
+  "hash_seed": "colonnade-165",
+  "key_bytes": 16,
+  "chunk_tokens": 1073741824,
+  "chunk_overlap": 1,
+  "target_llama_tokens": 200000000000,
+  "max_eos_drop_rate": 0.005,
+  "pilot_rows": 2000,
+  "dtype": "int32 (little-endian at rest; readers always mmap '<i4')",
+  "identity": "the corpus identity is its manifest.json canonical sha256, verified by pithos at read time; not republished here (a copied hash would be unverifiable)",
+  "provenance": "constants pinned in pretrain-data@d09a955 prep_corpus.py; see ../PROVENANCE.md"
+}

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pluralis-pithos"
+version = "0.1.0"
+description = "Deterministic pretraining data pipelines: a streamable chunk-corpus reader and corpus-build primitives, where sample_id -> tokens is a pure function."
+readme = "README.md"
+requires-python = ">=3.11"
+# Base runtime is deliberately Python + NumPy only. PyTorch is NEVER a
+# dependency here, not even via an extra: pithos.torch uses the
+# torch already present in the consumer's environment (e.g. a training
+# image), so installing pithos cannot select or upgrade anyone's torch.
+dependencies = [
+    "numpy",
+]
+
+[project.optional-dependencies]
+# Corpus-BUILD dependencies (producer side: tokenization, parquet scans,
+# object storage). Readers never need these.
+build = [
+    "pyarrow>=24",
+    "boto3",
+    "tokenizers>=0.20",
+    "huggingface-hub>=0.25",
+]
+# Reader-side S3 access, separate from build so readers can pull just boto3.
+s3 = [
+    "boto3",
+]
+test = [
+    "pytest",
+    "pyyaml",
+]
+
+[project.scripts]
+pithos = "pithos.build.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pithos"]

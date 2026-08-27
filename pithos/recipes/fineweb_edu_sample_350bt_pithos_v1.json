@@ -1,0 +1,50 @@
+{
+  "entry_type": "recipe",
+  "recipe": "fineweb_edu_sample_350bt_pithos_v1",
+  "status": "planned — NOT built; standalone reproduction of the upstream sample/350BT subset, built ONLY from its own source objects (never a key-order prefix of the per-crawl corpus)",
+  "format": "pithos_stream_v1",
+  "dtype": "<i4",
+  "chunk_tokens": 67108864,
+  "chunk_overlap": 1,
+  "supported_seq": [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072],
+  "dataset": "HuggingFaceFW/fineweb-edu",
+  "revision": null,
+  "revision_note": "immutable source revision is pinned by the lock phase at build time",
+  "source": {"kind": "huggingface", "dataset": "HuggingFaceFW/fineweb-edu", "revision": null},
+  "tokenizer": "NousResearch/Meta-Llama-3.1-8B",
+  "tokenizer_kind": "huggingface",
+  "tokenizer_rev": null,
+  "tokenizer_rev_note": "immutable tokenizer revision, asset digest, and implementation version are pinned by the lock phase",
+  "bos_id": 128000,
+  "eos_id": 128001,
+  "vocab_cap": 128512,
+  "hash_seed": null,
+  "hash_seed_note": "per-corpus seed derived by the lock phase from the recipe and locked source state",
+  "key_bytes": 16,
+  "include_rules": ["sample/350BT/*.parquet"],
+  "exclude_rules": [],
+  "exclude_note": "ONLY the standalone sample/350BT objects (the real upstream path) are selected — source membership is the reproduction's identity",
+  "upstream_filtering": "preserved — the published FineWeb-Edu educational-score filtering is taken as-is",
+  "dedup_policy": {
+    "per_crawl": "upstream per-crawl MinHash dedup preserved",
+    "cross_crawl": "retain cross-crawl duplicates — NO global dedup",
+    "dev_repetition_filter": "NOT applied (the legacy dev-only repetition filter is dropped)"
+  },
+  "transforms": [],
+  "transforms_note": "upstream-only: no pithos transforms — no global dedup, no legacy repetition filter",
+  "validation_reservation": {
+    "fraction": 0.001,
+    "method": "domain-separated keyed hash of the document key",
+    "domain": "pithos-validation-v1"
+  },
+  "ordering": "global ascending keyed BLAKE2b-128 over (crawl, document_id); the key order IS the uniform global shuffle",
+  "encoding": "[BOS] + tokens + [EOS] per document; documents whose tokenization contains the EOS id are dropped (counted, bounded by max_eos_drop_rate)",
+  "max_eos_drop_rate": 0.005,
+  "publish_root": null,
+  "publish_root_note": "immutable publish destination is pinned by the lock phase at build time",
+  "outputs": {
+    "full": {"status": "planned", "role": "train", "format": "pithos_stream_v1", "chunk_tokens": 67108864, "token_budget": null, "description": "the standalone sample/350BT reproduction train stream"},
+    "validation": {"status": "planned", "role": "validation", "format": "pithos_stream_v1", "chunk_tokens": 67108864, "token_budget": null, "description": "the reserved 0.1% validation split of the sample/350BT reproduction"}
+  },
+  "identity": "no identity until built: a built corpus is identified by its manifest.json canonical sha256, verified at read time"
+}

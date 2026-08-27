@@ -1,0 +1,35 @@
+// This file contains code originally from Hivemind under MIT License
+// Original: Copyright 2020 Learning@home authors and collaborators
+// Modified by: Pluralis Research 2026
+//
+// Original code: MIT License (see THIRD_PARTY_LICENSES)
+// Modifications: Apache 2.0 License (see LICENSE)
+//
+// Licensed under the Apache License, Version 2.0 (the "License") for modifications only;
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+// Originally taken from: https://github.com/mhchia/py-libp2p-daemon-bindings
+// Licence: MIT
+// Author: Kevin Mai-Husan Chia
+
+syntax = "proto2";
+
+package crypto.pb;
+
+enum KeyType {
+  RSA = 0;
+  Ed25519 = 1;
+  Secp256k1 = 2;
+  ECDSA = 3;
+}
+
+message PublicKey {
+  required KeyType key_type = 1;
+  required bytes data = 2;
+}
+
+message PrivateKey {
+  required KeyType key_type = 1;
+  required bytes data = 2;
+}

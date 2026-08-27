@@ -1,0 +1,50 @@
+include:
+  ../default.yaml
+
+# DHT
+num_handlers: 5
+
+# Model
+model_name: reparam_llama
+
+# Torch Optimizer
+optim_config:
+  init_args:
+    lr: 0.0003
+    betas: [0.9, 0.95]
+
+# Training Coordinator
+training_coordinator_config:
+  class_name: agora_server.core.coordination.training_coordinator_sparta_async_nstep.TrainingCoordinatorAsyncSparta
+  init_args:
+    reuse_grad_buffers: true
+    target_batch_size: 2048
+    matchmaking_time: 40.0
+    averaging_timeout: 150.0
+    offload_optimizer: true
+    delay_optimizer_step: true
+    delay_grad_averaging: true
+    delay_state_averaging: true
+    average_state_every: 20
+    ghost_phase1_steps: 400
+    ghost_phase2_steps: 100
+    load_state_block_window: 1
+
+# State Averager
+state_avg_config:
+  init_args:
+    sender_timeout: 30.0
+    reducer_timeout: 60.0
+    sparse_avg: 0.05
+    reuse_tensors: false
+    compression: agora_server.hivemind.compression.NoCompression
+    delta_rule_averaging: true
+
+# Training
+use_mixed_precision: true
+use_torch_compile: true
+compile_warmup_batches: 2
+no_optim_params: [rcv, fixed_tok_embeddings]
+scheduler: linear
+num_training_steps: 154900
+num_warmup_steps: 4000

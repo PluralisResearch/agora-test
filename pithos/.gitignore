@@ -1,0 +1,5 @@
+# Build/test artifacts (anchored: src/pithos/build/ is source, not an artifact)
+/build/
+/dist/
+/.pytest_cache/
+*.egg-info/

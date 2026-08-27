@@ -1,0 +1,1067 @@
+/* ============================================================
+   Agora docs — MkDocs Material customization.
+   Pluralis brand: Tufte-inspired, serif body, weight-400 headings.
+   Tokens lifted from PluralisResearch.github.io/app/globals.css.
+   ============================================================ */
+
+/* Inter is loaded only for diagrams (which use a sans stack to match
+   the docs-site reference). The Pluralis brand body itself stays serif. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Pluralis design tokens ──────────────────────────────── */
+:root {
+  /* Type stacks */
+  --p-font-body:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --p-font-code:  'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* Pluralis palette */
+  --p-text:        #0d0f12;   /* body */
+  --p-text-strong: #000;      /* headings, strong */
+  --p-muted:       #4a4f57;   /* readable gray (was #71757e — too pale) */
+  --p-muted-soft:  #6b7079;   /* still-readable secondary gray for sidenotes / captions */
+  --p-bg:          #fff;
+  --p-bg-soft:     #f8f8f8;
+  --p-bg-softer:   #f3f3f3;
+  --p-bg-figure:   #f9f9f9;
+  --p-link:        #022548;   /* prose link, deeper than code; underlined */
+  --p-link-hover:  #032f62;
+  --p-code-link:   #005cc5;   /* code-style blue, distinctly lighter than --p-link */
+  --p-purple:      #6f42c1;   /* highlight accent */
+  --p-red:         #d73a49;
+  --p-red-bg:      #fff0f0;
+
+  /* Semantic colors used by figures + admonitions */
+  --c-discovery:   #1a7f37;   /* Discovery / DHT / Seeds */
+  --c-compute:     #005cc5;   /* Compute / Workers / Forward */
+  --c-coord:       #6f42c1;   /* Coordination / Trainers */
+  --c-failure:     #d73a49;   /* Faults / Ghost mode */
+  --c-state:       #71757e;   /* Memory / state */
+  --c-backward:    #bf8700;   /* Backward pass / gradients */
+  --c-warn:        #bf8700;
+  --c-warn-bg:     #fff8e1;
+  --c-ok:          #1a7f37;
+  --c-ok-bg:       #f0fff4;
+
+  /* Surfaces and borders for figures (kept from docs-site, but darker
+     so the gray lines actually read as lines on a printed page).      */
+  --c-bg-figure:   #f9f9f9;
+  --c-border:      #c8ccd1;   /* was #e5e5e5 — too pale */
+  --c-border-soft: #d8dce0;   /* was #eeeeee */
+  --c-border-strong:#b3b8bf;  /* was #dddddd */
+  --c-bg-code:     var(--p-bg-soft);
+
+  /* Diagram-specific aliases — kept at docs-site values so the swarm-fig
+     zone diagram visually matches the reference exactly (forward arrow
+     in the same blue, AllReduce tile in the same tinted bg). */
+  --c-link:        #0969da;
+  --c-link-bg:     #f0f7ff;
+
+  /* Aliases needed by the swarm-fig CSS (it was written against earlier
+     variable names; these map them onto the Pluralis tokens so muted
+     text and surfaces resolve correctly instead of falling back to
+     `inherit` and rendering at the wrong shade). */
+  --c-muted:       var(--p-muted);
+  --c-muted-soft:  var(--p-muted-soft);
+  --c-text-strong: var(--p-text-strong);
+  --c-bg:          var(--p-bg);
+  --c-list:        var(--p-text);
+
+  --radius:        4px;
+  --radius-soft:   3px;
+  --radius-card:   6px;
+}
+
+/* ── Material theme overrides — map Material vars to Pluralis ─ */
+:root {
+  --md-text-font: var(--p-font-body);
+  --md-code-font: var(--p-font-code);
+  --md-typeset-font-size: 17px;
+
+  /* Header bar stays white via `palette.primary: white` in mkdocs.yml.
+     Accent (link hover, active-TOC indicator) is Pluralis link blue. */
+  --md-accent-fg-color:         var(--p-link);
+  --md-accent-fg-color--transparent: rgba(3,47,98,0.08);
+  --md-typeset-a-color:         var(--p-link);
+  --md-default-fg-color:        var(--p-text);
+  --md-default-bg-color:        var(--p-bg);
+}
+
+/* Header bar — "Agora" wordmark sits next to the temple-icon logo. */
+.md-header__title {
+  /* unset Material's default opacity/transform on small-screen tabs */
+  opacity: 1;
+  margin-left: 0;
+}
+.md-header__title .md-header__topic {
+  font-family: var(--p-font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--p-text-strong);
+  letter-spacing: -0.2px;
+}
+.md-header {
+  border-bottom: 1px solid var(--c-border-soft);
+  box-shadow: none;
+}
+
+/* Hide the duplicate "Agora" site-title at the top of the primary
+   sidebar on desktop — the wordmark is now in the header. On mobile
+   the drawer keeps it so users have a clear "drawer header" to tap. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary .md-nav--primary > .md-nav__title {
+    display: none;
+  }
+}
+
+/* Breadcrumb current-item — added by extras.js so the path includes
+   the current page name, not just its ancestors. The current item
+   reads as plain text, darker and slightly bolder than the ancestor
+   items, with a "›" separator before it.
+   When the page H1 matches its section name (section-index pages
+   like /quick-start/setup-guides/), extras.js applies the --current
+   class to the existing ancestor <a class="md-path__link"> rather
+   than appending a new <span>, so the rules below target the link
+   as well as the ellipsis. */
+.md-path,
+.md-path__item,
+.md-path__link,
+.md-path__item .md-ellipsis {
+  font-family: var(--p-font-body);
+}
+.md-path__item--current,
+.md-path__item--current .md-path__link,
+.md-path__item--current .md-ellipsis {
+  color: var(--p-text-strong);
+  font-weight: 600;
+}
+.md-path__item--current::before {
+  content: "›";
+  margin: 0 0.4em;
+  color: var(--p-muted);
+  font-weight: 400;
+}
+
+/* Sidebar group label (any nav title) — make section titles distinct
+   from the page links underneath. */
+.md-nav__title {
+  color: var(--p-text-strong);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Top-level section labels (Quick Start, Agora System) — collapsible
+   sections render as <label class="md-nav__link"> in Material 9.x, NOT
+   md-nav__title. Bold + dark colour to read as a section title. */
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+  color: var(--p-text);
+  font-weight: 600;
+}
+
+/* "Agora System" is the most prominent label — picked via :has() so
+   it's the *only* top-level item that gets the brand-prominence
+   treatment. Hrefs in the sidebar are relative (no leading slash). */
+.md-nav--primary > .md-nav__list > .md-nav__item:has(a[href*="agora-system/"]) > .md-nav__link {
+  color: var(--p-text-strong);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+}
+.md-nav--primary > .md-nav__list > .md-nav__item:has(a[href*="agora-system/"]) > .md-nav__link .md-ellipsis {
+  font-size: inherit;        /* override Material's child .md-ellipsis size */
+  font-weight: inherit;
+}
+
+/* Top-level link (Pluralis-8B run) — same size as everything else,
+   colored Pluralis link blue so it's clearly clickable. */
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+  color: var(--p-link);
+  font-weight: 500;
+}
+/* Active sidebar page accent uses Pluralis link blue */
+.md-nav__link--active,
+.md-nav__item--active > .md-nav__link {
+  color: var(--p-link);
+  font-weight: 500;
+}
+
+/* ── Body typography — Pluralis-style ─────────────────────── */
+body, .md-typeset {
+  font-family: var(--p-font-body);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--p-text);
+}
+
+/* Body prose justifies to both edges. Figcaptions, headings, admonition
+   titles, table cells, and code blocks aren't <p>/<li>, so they keep
+   their own alignment. */
+.md-typeset p,
+.md-typeset li {
+  text-align: justify;
+  hyphens: auto;
+}
+/* All code (inline + block, in prose or in callouts) at one compact
+   monospace size — 14 px. Smaller than 17 px body, distinct from
+   surrounding prose, consistent everywhere. */
+.md-typeset code,
+.md-typeset pre,
+.md-typeset pre code,
+.admonition code,
+.admonition pre,
+.admonition pre code {
+  font-family: var(--p-font-code);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.md-typeset code { color: var(--p-code-link); background: var(--p-bg-soft); padding: 1px 4px; border-radius: 3px; }
+.md-typeset pre code { color: inherit; background: none; padding: 0; }
+
+/* Pygments syntax-highlighting tokens that ship red in Material's
+   default theme — numbers (`.m` / `.mi` / `.mf` / `.mh` / `.mo` /
+   `.mb` / `.il`) and string-escape sequences (`.se`) — read as
+   error markers in the Pluralis palette where red is reserved for
+   actual failure. Map them to inherit the surrounding code text
+   colour so a literal `0` or `\n` looks like part of the line, not
+   a highlighted alert. Covers both bash-style `--gpu_id 0` numbers
+   and backslash escapes inside heredocs / shell snippets. */
+.md-typeset code .m,
+.md-typeset code .mb,
+.md-typeset code .mf,
+.md-typeset code .mh,
+.md-typeset code .mi,
+.md-typeset code .mo,
+.md-typeset code .il,
+.md-typeset code .se {
+  color: inherit;
+}
+.md-typeset pre {
+  background: var(--p-bg-soft);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius);
+}
+
+/* Links: always underlined, distinctly darker than inline code */
+.md-typeset a,
+.md-typeset a:visited {
+  color: var(--p-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(2, 37, 72, 0.45);
+}
+.md-typeset a:hover {
+  color: var(--p-link-hover);
+  text-decoration-color: var(--p-link-hover);
+}
+/* Don't underline links that wrap pure code, button-styled links, or obvious nav chrome */
+.md-typeset a code,
+.md-typeset a > code { text-decoration: none; }
+.md-typeset .md-button,
+.md-typeset .md-button:visited { text-decoration: none; }
+.md-header a, .md-tabs a, .md-nav a, .md-footer a { text-decoration: none; }
+
+.md-typeset strong { color: var(--p-text-strong); }
+
+/* Headings — weight 400, pure black, Pluralis sizes */
+.md-typeset h1 { font-weight: 400; font-size: 1.75rem; margin: 2.2rem 0 0.8rem; color: var(--p-text-strong); letter-spacing: 0; }
+.md-typeset h2 { font-weight: 400; font-size: 1.25rem; margin: 1.8rem 0 0.4rem; color: var(--p-text-strong); letter-spacing: 0; }
+.md-typeset h3 { font-weight: 400; font-size: 1rem;    margin: 1.4rem 0 0.3rem; color: var(--p-text-strong); letter-spacing: 0; }
+.md-typeset h4 { font-weight: 600; font-size: 0.95rem; margin: 1.2rem 0 0.3rem; color: var(--p-text-strong); }
+
+/* Task list checkboxes — Material's default is too pale on white. Use
+   a darker gray for unchecked, Pluralis link blue for checked. */
+.md-typeset .task-list-indicator::before {
+  background-color: var(--p-muted);
+}
+.md-typeset .task-list-control [type="checkbox"]:checked
+  + .task-list-indicator::before {
+  background-color: var(--p-link);
+}
+
+/* Tables — header slightly bigger than body, cells slightly smaller.
+   Distinct visual hierarchy without relying on bold weight alone.
+   Tables size to content (not stretched to 100%); if the natural width
+   exceeds the column, the table scrolls horizontally rather than
+   wrapping every cell to fit. */
+.md-typeset table:not([class]) {
+  font-size: 1em;
+  display: block;
+  overflow-x: auto;
+  width: max-content;
+  max-width: 100%;
+}
+.md-typeset table:not([class]) th {
+  font-size: 18px;                  /* slightly bigger than 17 px body */
+  font-weight: 600;
+  color: var(--p-text-strong);
+  background: transparent;
+  border-bottom: 2px solid var(--c-border-strong);
+  white-space: nowrap;              /* headers stay on one line */
+}
+.md-typeset table:not([class]) td {
+  font-size: 15px;                  /* slightly smaller than body */
+  border-bottom: 1px solid var(--c-border-soft);
+  white-space: nowrap;              /* body cells stay on one line too */
+}
+/* Inline code in table cells doesn't break either. */
+.md-typeset table:not([class]) code {
+  white-space: nowrap;
+}
+
+/* Sidebar and on-this-page TOC */
+.md-sidebar--secondary {
+  width: 14rem;
+  /* Keep TOC above wide diagrams that scroll horizontally; the white
+     nav block below does the actual occluding. */
+  z-index: 2;
+}
+/* Opaque white background ONLY behind the actual TOC list (and title),
+   so the height tracks the real content length on every page. The
+   horizontal box-shadow extends the white across the sidebar's natural
+   side-padding (about 0.8 rem each side in Material's default layout)
+   so a wide diagram can't peek through the gap between the nav block
+   and the sidebar edges. The bg still stops at the last TOC item. */
+.md-sidebar--secondary .md-nav--secondary {
+  background: var(--c-bg);
+  box-shadow: -1rem 0 0 var(--c-bg), 1rem 0 0 var(--c-bg);
+  /* The body background is also white, so the white card and the
+     body bleed into each other below the last item — visually the
+     card looks like it has no end. A thin bottom rule makes the
+     boundary perceptible without introducing a card outline on the
+     sides. */
+  border-bottom: 1px solid var(--c-border-soft);
+  padding-bottom: 4px;
+}
+.md-nav__title[for="__toc"] {
+  font-family: var(--p-font-body);
+  color: var(--p-muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.md-nav__link {
+  font-family: var(--p-font-body);
+}
+
+/* Buttons (md-button) — Pluralis-toned */
+.md-typeset .md-button {
+  font-family: var(--p-font-body);
+  font-weight: 500;
+}
+
+/* Primary CTA button — readable at rest (light blue tint + deep blue
+   text), strong on hover (deep blue fill + white text). Material's
+   default with palette.primary: white was leaving the button nearly
+   invisible until hovered. */
+.md-typeset .md-button--primary {
+  background-color: #dbeafe;
+  border-color: #dbeafe;
+  color: var(--p-link);
+}
+.md-typeset .md-button--primary:focus,
+.md-typeset .md-button--primary:hover {
+  background-color: var(--p-link);
+  border-color: var(--p-link);
+  color: #fff;
+}
+
+/* Footnotes — Tufte-style sidenotes (right rail on wide, inline on narrow) */
+.md-typeset .footnote {
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(0,0,0,0.65);
+}
+.md-typeset .footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--p-link);
+  font-weight: 500;
+}
+
+/* Numbered hierarchical headings — opt-in per page by adding `{ .numbered }`
+   after the page H1, e.g. `# Training Architecture { .numbered }`. Uses
+   :has() to scope counters to articles whose H1 carries the marker class. */
+.md-content article:has(h1.numbered) { counter-reset: h2; }
+.md-content article:has(h1.numbered) h2 { counter-reset: h3; }
+.md-content article:has(h1.numbered) h2::before {
+  counter-increment: h2;
+  content: counter(h2) ". ";
+  color: var(--p-muted);
+  margin-right: 0.2rem;
+  font-weight: 400;
+}
+.md-content article:has(h1.numbered) h3::before {
+  counter-increment: h3;
+  content: counter(h2) "." counter(h3) " ";
+  color: var(--p-muted);
+  margin-right: 0.2rem;
+  font-weight: 400;
+}
+
+/* Numbered figures — <figure class="agora-figure"> wraps each diagram and
+   provides the soft-gray surface from docs-site (figure-container).        */
+.md-content article { counter-reset: agora-fig; }
+.md-typeset figure.agora-figure {
+  counter-increment: agora-fig;
+  margin: 2rem 0;
+  background: var(--p-bg-figure);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  padding: 24px 0 18px;
+  width: 100%;
+  /* Was overflow-x: auto, which clipped the 1100 px+ swarm-fig at the
+     650 px article column edge and offered a horizontal scrollbar.
+     Result: the diagram looked like it was being clipped by a white
+     overlay on the right. We'd rather have the wide diagram break
+     out to the right of the column into the gutter where the ToC
+     sidebar sits — it's still occluded vertically where the ToC
+     overlaps (intentional, via the nav's white box-shadow side-bleed),
+     but visible below the ToC. The narrow-viewport @media query at
+     1219 px already reflows the swarm-fig to width:100%, so this only
+     overflows on the wide layout where there's room. */
+  overflow-x: visible;
+  /* Establish a stacking context so the gray-extension pseudo-element
+     below can sit behind the diagram (z-index: -1) without sliding
+     behind unrelated page chrome. */
+  position: relative;
+  isolation: isolate;
+}
+/* Extend the figure's soft-gray surface to cover the swarm-fig's
+   natural right overflow without growing the diagram itself. The
+   swarm-fig is the only diagram on the site that overflows the
+   article column; worker-fig / trainer-fig / ssn-fig all fit inside.
+   We scope this with :has(.swarm-fig) so the extension only paints
+   when needed. Width = available gutter (100vw - 100% of figure),
+   capped at 750 px (swarm-fig max-width 1400 minus column min-width
+   ~650). `html { overflow-x: hidden }` clips at the viewport edge
+   regardless, but the cap keeps the painted region from extending
+   far past the diagram on ultra-wide viewports. */
+.md-typeset figure.agora-figure:has(.swarm-fig)::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 100%;
+  /* The swarm-fig's natural rendered width is exactly its min-width
+     (1100 px) now that its internal horizontal padding is removed —
+     the zones span flush to its edges, so width of the gray
+     extension = diagram width − figure width = 1100 − 100%. Capped
+     by max-width so it never extends past the viewport edge. */
+  width: calc(1100px - 100%);
+  max-width: calc(100vw - 100%);
+  background: var(--p-bg-figure);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  box-sizing: border-box;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Architecture diagrams: align to the article column's left edge so
+   any overflow only goes to the right (into the gutter). margin: auto
+   would attempt to centre and pull the diagram off the left edge of
+   the column on wide viewports, which we don't want — we want the
+   left edge of the diagram to line up with the prose. */
+.md-typeset figure.agora-figure .swarm-fig {
+  margin: 0;
+}
+.md-typeset figure.agora-figure figcaption {
+  font-size: 13px;       /* smaller than diagram body (max 16 px) and prose (17 px) */
+  line-height: 1.5;
+  color: var(--p-muted);
+  margin: 14px auto 0;
+  padding: 0 24px;
+  max-width: 800px;
+  text-align: center;
+  font-style: italic;
+  font-family: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+}
+/* Inline colour cues in figcaptions — match the arrow colour for the
+   referenced flow so the legend in the caption reads like the diagram. */
+.md-typeset figure.agora-figure figcaption .fig-forward {
+  /* Forward direction is red across all diagrams (swarm-fig arrow,
+     trainer-fig arrow, ssn-fig compressed-activation arrow) — keep
+     this figcaption legend marker matched. */
+  color: var(--p-red); font-weight: 600; font-style: normal;
+}
+.md-typeset figure.agora-figure figcaption .fig-backward {
+  color: var(--c-warn); font-weight: 600; font-style: normal;
+}
+.md-typeset figure.agora-figure figcaption .fig-discovery {
+  color: var(--c-ok); font-weight: 600; font-style: normal;
+}
+.md-typeset figure.agora-figure figcaption::before {
+  content: "Figure " counter(agora-fig) ". ";
+  font-weight: 600;
+  color: var(--p-text-strong);
+  font-style: normal;
+}
+
+/* Diagrams use a sans-serif stack so the visual parity with docs-site
+   doesn't get derailed by Pluralis's serif body. Inter falls back to
+   the platform sans, matching docs-site exactly. */
+.md-typeset .swarm-fig,
+.md-typeset .agora-hero,
+.md-typeset .ssn-fig,
+.md-typeset .ipc-fig,
+.md-typeset .worker-fig,
+.md-typeset .trainer-fig {
+  font-family: 'Inter', -apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ── Worker internals diagram ─────────────────────────────── */
+.worker-fig {
+  display: block;
+  margin: 0 auto;
+  padding: 18px 16px;
+  background: #ffffff;
+  /* Perimeter matches the trainer-fig card: thin soft-gray rule
+     instead of the previous 2 px blue accent, so the two diagrams
+     on the page read with the same framing style. */
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-card);
+  max-width: 880px;
+  box-sizing: border-box;
+}
+.worker-fig .worker-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--c-link);
+  margin-bottom: 14px; text-align: center;
+}
+.worker-fig .worker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  /* belt-and-braces against Material's .md-typeset div spacing */
+  margin: 0;
+}
+.worker-fig .wc-cell {
+  flex: 1 1 calc(33.333% - 10px);
+  min-width: 200px;
+  background: var(--c-bg-figure);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  box-sizing: border-box;
+  /* reset Material's vertical rhythm so cells sit flush in the grid */
+  margin: 0;
+}
+.worker-fig .wc-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-list);
+  margin: 0 0 3px 0;
+}
+.worker-fig .wc-desc {
+  font-size: 11px;
+  color: var(--c-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.worker-fig .wc-cell.accent {
+  background: var(--c-link-bg);
+  border-color: #d0e0f0;
+}
+.worker-fig .wc-cell.accent .wc-name { color: var(--c-link); }
+
+/* ── Trainer-to-workers pipeline diagram ──────────────────── */
+.trainer-fig {
+  margin: 24px 0;
+  padding: 22px 20px;
+  /* White bg so the diagram's bounding box reads as a card sitting
+     on top of the figure's gray surface, instead of gray-on-gray
+     where only the 1 px border defined the perimeter. Matches the
+     worker-fig pattern (white card on gray figure). */
+  background: var(--p-bg);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-card);
+}
+.trainer-fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+/* Semantic term highlighting (Goodfire-style) */
+.t-discovery { color: var(--c-discovery); font-weight: 500; }
+.t-compute   { color: var(--c-compute);   font-weight: 500; }
+.t-coord     { color: var(--c-coord);     font-weight: 500; }
+.t-failure   { color: var(--c-failure);   font-weight: 500; }
+.t-state     { color: var(--c-state);     font-weight: 500; }
+.t-backward  { color: var(--c-backward);  font-weight: 500; }
+
+/* ── Body & typography (override retype defaults) ─────────── */
+/* NB: the variable used to be the never-defined `--font-body`, which
+   silently resolved to `initial` and fell back to browser-default
+   Times. Every page was rendering body, header repo link, and footer
+   prev/next nav in a serif font as a result. Fixed to the proper
+   `--p-font-body` (Inter sans stack) so the whole site picks up the
+   sans body and the same applies to the .md-source repo handle and
+   the .md-footer__link Previous/Next pagination chrome. */
+html body {
+  font-family: var(--p-font-body);
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+main h1, .markdown-section h1 {
+  font-size: 36px; font-weight: 700; color: var(--c-text-strong);
+  line-height: 1.2; letter-spacing: -0.5px;
+}
+main h2, .markdown-section h2 {
+  font-size: 22px; font-weight: 700; color: var(--c-text-strong);
+  margin-top: 48px; margin-bottom: 14px; letter-spacing: -0.2px;
+}
+main h3, .markdown-section h3 {
+  font-size: 16px; font-weight: 600; color: var(--c-text-strong);
+  margin-top: 32px; margin-bottom: 8px;
+}
+main h4, .markdown-section h4 {
+  font-size: 14px; font-weight: 600; color: var(--c-list);
+  margin-top: 24px; margin-bottom: 6px;
+}
+
+main p, .markdown-section p { color: var(--c-list); }
+main strong, .markdown-section strong { color: var(--c-text-strong); }
+main ul, main ol, .markdown-section ul, .markdown-section ol { color: var(--c-list); }
+main li, .markdown-section li { line-height: 1.6; }
+
+main a, .markdown-section a { color: var(--c-link); text-decoration: none; }
+main a:hover, .markdown-section a:hover { text-decoration: underline; }
+
+main hr, .markdown-section hr { border: none; border-top: 1px solid var(--c-border-soft); margin: 40px 0; }
+
+/* ── Code (inline + block) ────────────────────────────────── */
+main code, .markdown-section code {
+  font-family: var(--p-font-code);
+  font-size: 13px;
+  background: var(--c-bg-code);
+  padding: 1px 4px;
+  border-radius: var(--radius-soft);
+}
+main pre, .markdown-section pre {
+  background: var(--c-bg-code);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+main pre code, .markdown-section pre code { background: none; padding: 0; font-size: 13px; }
+
+/* ── Tables ───────────────────────────────────────────────── */
+main table, .markdown-section table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; margin-bottom: 20px;
+}
+main th, .markdown-section th {
+  text-align: left; font-weight: 600;
+  color: var(--c-text-strong); padding: 8px 10px;
+  border-bottom: 2px solid var(--c-border-strong);
+  font-size: 12px;
+}
+main td, .markdown-section td {
+  padding: 7px 10px; border-bottom: 1px solid var(--c-border-soft);
+  color: var(--c-list); vertical-align: top;
+}
+main tr:last-child td, .markdown-section tr:last-child td { border-bottom: none; }
+main tbody tr:hover, .markdown-section tbody tr:hover { background: var(--c-bg-soft); }
+
+/* ── Callouts (retype admonitions → docs-site .callout look) ─
+   Retype emits .admonition.admonition-info / .admonition-warning /
+   .admonition-success. Map them visually to the reference style.
+   ──────────────────────────────────────────────────────────── */
+.admonition,
+.md-typeset .admonition,
+.md-typeset details {
+  border-left: 3px solid var(--c-link);
+  background: transparent;          /* dropped tinted bg per design ask */
+  padding: 8px 16px 4px;
+  margin: 20px 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--c-list);
+  font-size: 14px;                  /* compact content text */
+  line-height: 1.55;
+}
+.admonition p { margin-bottom: 6px; font-size: 1em; line-height: 1.5; }
+.admonition p:last-child { margin-bottom: 0; }
+.admonition ul { margin: 8px 0 0; padding-left: 20px; }
+.admonition li { margin-bottom: 8px; font-size: 1em; line-height: 1.5; }
+.admonition li:last-child { margin-bottom: 0; }
+
+/* Everything inside admonitions — prose, code (inline + block), table
+   cells — renders at the same body size. Earlier "callout prose bigger
+   / callout code smaller" multipliers were cascading dangerously through
+   `.admonition table` paths (admonition table → 0.95em parent → admonition
+   code → 0.7em → ~11 px). One uniform body size avoids the cascade. */
+.admonition,
+.admonition p,
+.admonition li,
+.admonition td,
+.admonition th,
+.admonition code,
+.admonition pre,
+.admonition pre code,
+.admonition table:not([class]) {
+  font-size: 1em;
+}
+.admonition .admonition-title,
+.md-typeset .admonition .admonition-title,
+.md-typeset details > summary {
+  font-size: 15px;                  /* bigger than 14px content, tight enough for the icon */
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.5;                 /* matches Material's icon-row baseline */
+  color: var(--c-link);
+  background: transparent;
+}
+
+/* Variant types now signalled by the left-border color and the title
+   color only — backgrounds dropped per design ask. */
+.admonition.admonition-warning,
+.admonition-warning,
+.md-typeset .admonition.warning {
+  border-left-color: var(--c-warn);
+  background: transparent;
+}
+.admonition.admonition-warning .admonition-title,
+.admonition-warning .admonition-title,
+.md-typeset .admonition.warning > .admonition-title { color: var(--c-warn); }
+
+.admonition.admonition-success,
+.admonition-success,
+.md-typeset .admonition.success {
+  border-left-color: var(--c-ok);
+  background: transparent;
+}
+.admonition.admonition-success .admonition-title,
+.admonition-success .admonition-title,
+.md-typeset .admonition.success > .admonition-title { color: var(--c-ok); }
+
+.admonition.admonition-danger,
+.admonition-danger,
+.md-typeset .admonition.danger {
+  border-left-color: var(--c-err);
+  background: transparent;
+}
+.admonition.admonition-danger .admonition-title,
+.admonition-danger .admonition-title,
+.md-typeset .admonition.danger > .admonition-title { color: var(--c-err); }
+
+/* ── Architecture / pipeline-zone diagram ─────────────────── */
+.swarm-fig {
+  width: fit-content; min-width: 1100px; max-width: 1400px;
+  /* Was `padding: 0 24px` — that put a 24 px gray gutter between the
+     zone borders and the figure's gray-bg edge on both sides, which
+     read as inconsistent with worker-fig / trainer-fig / ssn-fig
+     (where the diagram visually touches the figure container's
+     edges). Removed so the zones span flush to the gray surface,
+     matching the other diagrams on the page. */
+  margin: 0 auto; padding: 0;
+}
+.swarm-fig .fig-header { margin-bottom: 14px; }
+.swarm-fig .fig-header h2 { font-size: 22px; margin: 0 0 4px; }
+.swarm-fig .fig-header .fig-subtitle { font-size: 13px; color: var(--c-muted); }
+.swarm-fig .architecture {
+  display: flex; gap: 0; align-items: stretch; min-height: 380px;
+}
+.swarm-fig .zone {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--c-border); background: var(--c-bg);
+  overflow: hidden;
+}
+.swarm-fig .zone-header { padding: 10px 14px 8px; border-bottom: 1px solid var(--c-border-soft); }
+.swarm-fig .zone-number {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--c-muted-soft); margin-bottom: 2px;
+}
+.swarm-fig .zone-title { font-size: 16px; font-weight: 700; color: var(--c-text-strong); margin-bottom: 3px; }
+.swarm-fig .zone-desc { font-size: 11px; color: var(--c-muted); line-height: 1.4; }
+.swarm-fig .zone-body { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.swarm-fig .seed-zone { flex: 0 0 200px; border-radius: var(--radius-card) 0 0 var(--radius-card); }
+.swarm-fig .pipeline-zone { flex: 1; min-width: 500px; }
+.swarm-fig .trainer-zone { flex: 0 0 220px; border-radius: 0 var(--radius-card) var(--radius-card) 0; }
+
+.swarm-fig .stage-grid { display: flex; gap: 5px; flex: 1; }
+.swarm-fig .pipeline-stage {
+  flex: 1; background: var(--c-bg-figure);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 7px; display: flex; flex-direction: column; gap: 3px;
+}
+.swarm-fig .pipeline-stage.head, .swarm-fig .pipeline-stage.tail {
+  border-color: var(--c-link); background: var(--c-link-bg);
+}
+.swarm-fig .stage-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--c-muted-soft);
+}
+.swarm-fig .stage-name { font-size: 13px; font-weight: 700; color: var(--c-list); }
+.swarm-fig .stage-detail { font-size: 11px; color: var(--c-muted); line-height: 1.4; }
+.swarm-fig .worker-node {
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: var(--radius); padding: 6px 8px; margin-top: 4px;
+}
+.swarm-fig .worker-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--p-muted-soft);
+}
+.swarm-fig .worker-gpu  { font-size: 11px; font-weight: 600; color: var(--p-text); }
+.swarm-fig .worker-info { font-size: 11px; color: var(--c-muted-soft); }
+
+.swarm-fig .ar-bar {
+  margin-top: auto; padding: 5px 8px;
+  background: var(--c-link-bg); border: 1px solid #d0e0f0;
+  border-radius: var(--radius-soft); text-align: center;
+}
+.swarm-fig .ar-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--c-link);
+}
+.swarm-fig .ar-detail { font-size: 11px; color: var(--c-muted); }
+
+.swarm-fig .seed-item, .swarm-fig .trainer-item {
+  background: var(--c-bg-figure); border: 1px solid var(--c-border);
+  border-radius: var(--radius); padding: 7px; flex: 1;
+}
+.swarm-fig .seed-name, .swarm-fig .trainer-name {
+  font-size: 12px; font-weight: 600; color: var(--c-list);
+}
+.swarm-fig .seed-desc, .swarm-fig .trainer-desc {
+  font-size: 11px; color: var(--c-muted); line-height: 1.4; margin-top: 3px;
+}
+.swarm-fig .trainer-tag {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 2px 5px; border-radius: var(--radius-soft); margin-top: 3px;
+}
+.swarm-fig .tag-cpu { background: var(--c-link-bg); color: var(--c-link); }
+
+.swarm-fig .arrow-col {
+  width: 80px; flex-shrink: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  align-items: center; gap: 8px; padding: 12px 0;
+}
+.swarm-fig .data-flow {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 3px; width: 100%;
+}
+.swarm-fig .flow-direction {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--p-muted-soft);
+}
+.swarm-fig .flow-arrow-line { width: 100%; height: 2px; position: relative; }
+.swarm-fig .flow-arrow-line .line { width: 100%; height: 2px; }
+.swarm-fig .flow-arrow-line .head-right {
+  position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+  width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+.swarm-fig .flow-arrow-line .head-left {
+  position: absolute; left: -1px; top: 50%; transform: translateY(-50%);
+  width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+.swarm-fig .flow-payload {
+  background: var(--c-bg); border: 1px solid var(--c-border);
+  border-radius: var(--radius); padding: 4px 6px;
+  width: 100%; text-align: center;
+}
+.swarm-fig .payload-what { font-size: 11px; font-weight: 600; color: var(--c-list); line-height: 1.3; }
+.swarm-fig .payload-size { font-size: 10px; color: var(--c-muted-soft); margin-top: 2px; }
+/* Inline <code> inside the payload labels was inheriting the global
+   14 px code size, dwarfing the 10–11 px label text around it (e.g.
+   `grad_input` rendered nearly 50% larger than "Backward pass"). Pin
+   it to the surrounding label's size so it reads as part of the same
+   line of text rather than a separate inset chip. */
+.swarm-fig .flow-payload code {
+  font-size: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Forward direction is red across diagrams (matches .fig-forward in
+   the figcaption legend). */
+.swarm-fig .flow-forward .line { background: var(--p-red); }
+.swarm-fig .flow-forward .head-right { border-left: 6px solid var(--p-red); }
+/* Mirrored direction: same red, points LEFT. Used where data-going-INTO-
+   compute travels right-to-left in the layout (e.g. IPC: Trainer → Workers). */
+.swarm-fig .flow-forward .head-left { border-right: 6px solid var(--p-red); }
+.swarm-fig .flow-backward .line { background: var(--c-warn); }
+.swarm-fig .flow-backward .head-left { border-right: 6px solid var(--c-warn); }
+/* Mirrored direction: same yellow, points RIGHT. Used where data-coming-OUT-
+   of-compute travels left-to-right in the layout (e.g. IPC: Workers → Trainer). */
+.swarm-fig .flow-backward .head-right { border-left: 6px solid var(--c-warn); }
+.swarm-fig .flow-discovery .line { background: var(--c-ok); }
+.swarm-fig .flow-discovery .head-right { border-left: 6px solid var(--c-ok); }
+
+.swarm-fig .zone-footer {
+  padding: 5px 10px; border-top: 1px solid var(--c-border-soft);
+  background: var(--c-bg-soft);
+}
+.swarm-fig .security-badge { display: flex; align-items: flex-start; gap: 5px; }
+.swarm-fig .badge-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--c-ok);
+  flex-shrink: 0;
+  /* Align to the visual center of the FIRST text line, not the bounding-box
+     center — keeps the dot lined up even when text wraps to two lines. */
+  margin-top: 0.4em;
+}
+.swarm-fig .badge-text { font-size: 11px; color: var(--c-muted); }
+.swarm-fig .badge-text strong { color: var(--c-list); }
+
+/* Figure container — light gray surface around any HTML diagram */
+.figure-container {
+  margin: 36px -24px;
+  background: var(--c-bg-figure);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  padding: 24px 0;
+  width: calc(100% + 48px);
+  overflow-x: auto;
+}
+.figure-caption {
+  text-align: center; font-size: 12.5px; color: var(--c-muted);
+  padding: 12px 24px 0; max-width: 800px; margin: 0 auto;
+}
+
+/* ── Sidenotes (Goodfire-style margin notes) ──────────────── */
+.sidenote {
+  display: block;
+  margin: 6px 0 14px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--c-muted);
+  background: var(--c-bg-soft);
+  border-left: 2px solid var(--c-border-soft);
+  border-radius: 0 var(--radius-soft) var(--radius-soft) 0;
+}
+.sidenote strong { color: #555; font-weight: 600; }
+.sidenote code { font-size: 11px; color: #666; }
+.sidenote a { color: var(--c-link); }
+.sidenote-number {
+  font-size: 10px; font-weight: 600; color: var(--c-link); margin-right: 4px;
+}
+.note-ref {
+  font-size: 10px; font-weight: 600; color: var(--c-link);
+  text-decoration: none; vertical-align: super; line-height: 0; margin-left: 1px;
+}
+.note-ref:hover { text-decoration: underline; }
+
+/* ── Mini hero diagram (homepage) ─────────────────────────────
+   Three separate boxes (Discovery / Compute / Coordination), each
+   with its own gray edge, sitting on the figure-container's gray
+   surface. Discovery and Coordination = white internals; Compute
+   keeps a soft Pluralis blue tint to mark it as the active layer. */
+.agora-hero {
+  display: flex; align-items: stretch; gap: 0;       /* boxes sit right next to the arrow columns */
+  margin: 24px 0;
+  background: transparent;
+}
+.agora-hero .hero-zone {
+  flex: 1; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: #fff;                   /* Discovery + Coordination: white */
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-card);
+}
+.agora-hero .hero-zone.compute {
+  background: var(--c-link-bg);       /* Compute: light blue tint, kept */
+}
+.agora-hero .hero-zone .hero-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--c-muted-soft);
+}
+.agora-hero .hero-zone .hero-title {
+  font-size: 16px; font-weight: 700; color: var(--c-text-strong);
+}
+.agora-hero .hero-zone .hero-desc {
+  font-size: 12.5px; color: var(--c-muted); line-height: 1.4;
+}
+.agora-hero .hero-arrow {
+  flex: 0 0 64px;                     /* wider column → more visual reach between zones */
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  font-size: 24px; color: var(--c-link); font-weight: 700;
+}
+
+/* ── Subspace Networks compression diagram ───────────────── */
+.ssn-fig {
+  margin: 24px 0; padding: 18px 16px;
+  background: var(--c-bg-figure); border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-card);
+}
+.ssn-fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+/* ── Inter-process communication sequence diagram ────────── */
+.ipc-fig {
+  margin: 24px 0; padding: 18px 16px;
+  background: var(--c-bg-figure); border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-card);
+}
+.ipc-fig svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.ssn-fig .ssn-caption {
+  text-align: center; font-size: 12.5px; color: var(--c-muted);
+  margin-top: 10px;
+}
+
+/* ── Pills, chips, status grid (for future use) ──────────── */
+.metric-chip {
+  display: inline-block; padding: 6px 10px;
+  background: var(--c-bg-soft); border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius); margin-right: 8px;
+}
+.metric-chip .metric-value {
+  font-size: 16px; font-weight: 700; color: var(--c-text-strong);
+}
+.metric-chip .metric-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--c-muted-soft);
+}
+.tag {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  padding: 1px 5px; border-radius: var(--radius-soft); vertical-align: middle;
+}
+.tag-blue   { background: #dbeafe; color: #1d4ed8; }
+.tag-yellow { background: #fef3c7; color: #92400e; }
+.tag-green  { background: #d1fae5; color: #065f46; }
+.tag-gray   { background: #f3f4f6; color: #6b7280; }
+
+/* ── Cloud-provider screenshot styling ────────────────────── */
+img.docs-screenshot, .docs-screenshot img {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  max-width: 100%;
+  margin: 6px 0 16px;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+/* Below 1220 px the article column is too narrow for the horizontal
+   layout's 1100 px min-width, so the diagram reflows vertically here. */
+@media (max-width: 1219px) {
+  .swarm-fig {
+    min-width: 0; width: 100%; padding: 0;
+  }
+  .swarm-fig .architecture {
+    flex-direction: column; min-height: 0;
+  }
+  .swarm-fig .seed-zone, .swarm-fig .pipeline-zone, .swarm-fig .trainer-zone {
+    flex: 1 1 auto; min-width: 0; border-radius: 0;
+  }
+  .swarm-fig .seed-zone { border-radius: var(--radius-card) var(--radius-card) 0 0; }
+  .swarm-fig .trainer-zone { border-radius: 0 0 var(--radius-card) var(--radius-card); }
+  .swarm-fig .arrow-col {
+    width: 100%; flex-direction: row; padding: 8px 12px; gap: 12px;
+  }
+  .swarm-fig .stage-grid { flex-wrap: wrap; }
+  .swarm-fig .pipeline-stage { flex: 1 1 45%; min-width: 200px; }
+}
+
+@media (max-width: 700px) {
+  .agora-hero { flex-direction: column; }
+  .agora-hero .hero-zone + .hero-zone { border-left: none; border-top: 1px solid var(--c-border); }
+  .agora-hero .hero-arrow {
+    flex: 0 0 24px; height: 24px; transform: rotate(90deg);
+  }
+}

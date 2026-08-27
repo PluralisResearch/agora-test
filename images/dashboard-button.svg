@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="72" viewBox="0 0 380 72" role="img" aria-labelledby="dash-v5-title dash-v5-desc">
+  <title id="dash-v5-title">Live Dashboard</title>
+  <desc id="dash-v5-desc">Open the live training run dashboard at dashboard.pluralis.ai</desc>
+
+  <!-- Panel -->
+  <rect x="0.5" y="0.5" width="379" height="71" rx="3" ry="3" fill="#12121a" stroke="#2a2a3a"/>
+
+  <!-- Two-tone run color bars at the bottom (primary blue + secondary orange) -->
+  <rect x="1" y="68" width="189" height="3" fill="#4a9eff"/>
+  <rect x="190" y="68" width="189" height="3" fill="#fb923c"/>
+
+  <!-- Mono eyebrow -->
+  <text x="190" y="24"
+        text-anchor="middle"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace"
+        font-size="10" font-weight="600" letter-spacing="2" fill="#8888a0">PLURALIS · AGORA</text>
+
+  <!-- Title -->
+  <text x="190" y="48"
+        text-anchor="middle"
+        font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="18" font-weight="600" fill="#e0e0e8">Open Live Dashboard</text>
+
+  <!-- Live dot (top-left) -->
+  <g transform="translate(18 18)">
+    <circle r="3" fill="#22c55e"/>
+    <circle r="3" fill="#22c55e">
+      <animate attributeName="r" values="3;7;3" dur="2.4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.5;0;0.5" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Arrow (top-right) -->
+  <g transform="translate(360 18)" fill="none" stroke="#e0e0e8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M -6 0 L 4 0"/>
+    <path d="M 0 -4 L 4 0 L 0 4"/>
+  </g>
+</svg>

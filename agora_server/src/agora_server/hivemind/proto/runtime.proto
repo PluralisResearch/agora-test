@@ -1,0 +1,51 @@
+// This file contains code originally from Hivemind under MIT License
+// Original: Copyright 2020 Learning@home authors and collaborators
+// Modified by: Pluralis Research 2026
+//
+// Original code: MIT License (see THIRD_PARTY_LICENSES)
+// Modifications: Apache 2.0 License (see LICENSE)
+//
+// Licensed under the Apache License, Version 2.0 (the "License") for modifications only;
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+syntax = "proto3";
+
+
+message ExpertUID {
+  string uid = 1;
+}
+
+message ExpertInfo {
+  bytes serialized_info = 1;
+}
+
+message ExpertRequest {
+  string uid = 1;
+  repeated Tensor tensors = 2;
+  bytes metadata = 3;
+}
+
+message ExpertResponse {
+  repeated Tensor tensors = 2;
+  bytes metadata = 3;
+}
+
+enum CompressionType{
+  NONE = 0;
+  MEANSTD_16BIT = 1;
+  FLOAT16 = 2;
+  QUANTILE_8BIT = 3;
+  UNIFORM_8BIT = 4;
+  BLOCKWISE_8BIT = 5;
+}
+
+message Tensor {
+  bytes buffer = 1;
+  repeated uint32 size = 2;
+  bool requires_grad = 3;
+  string dtype = 4;
+  CompressionType compression = 5;
+  int32 chunks = 6;
+}
+

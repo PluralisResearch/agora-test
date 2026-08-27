@@ -1,0 +1,40 @@
+{
+  "entry_type": "recipe",
+  "recipe": "legacy_fineweb_edu_rechunk_v1",
+  "status": "planned — NOT built; byte-preserving re-chunk of a locked legacy FineWeb-Edu flat-token stream into the approved 2**26+1 contract. No re-tokenization, no reordering: the flat logical token stream is preserved exactly.",
+  "format": "pithos_stream_v1",
+  "dtype": "<i4",
+  "chunk_tokens": 67108864,
+  "chunk_overlap": 1,
+  "supported_seq": [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072],
+  "dataset": "a locked legacy FineWeb-Edu flat-token stream (pre-existing binary objects; the exact logical token count is pinned by the lock, not asserted by this recipe)",
+  "source": {"kind": "legacy_binary", "uri": null, "legacy_chunk_tokens": 1073741824, "expected_logical_tokens": null},
+  "source_note": "uri and expected_logical_tokens are null ON PURPOSE: the locked legacy stream location, its ordered object inventory (name, size, sha256, tokens), and — when the true count is known — the exact expected logical token count are REQUIRED lock inputs (pass --source-uri at lock time), never invented. Locking fails clearly until the real location is supplied, and finalize reconciles the emitted total against the locked inventory's logical count.",
+  "tokenizer": "upstream-legacy-stream",
+  "tokenizer_kind": "byte",
+  "tokenizer_note": "no tokenization happens on this path (the stream is already tokens); the tokenizer fields are schema-required but unused, and bos/eos pins below are the legacy stream's own published values",
+  "bos_id": 128000,
+  "eos_id": 128001,
+  "vocab_cap": 128512,
+  "hash_seed": "00000000000000000000000000000000",
+  "hash_seed_note": "unused on the legacy path (no keying); pinned to a fixed value so the recipe is fully deterministic",
+  "key_bytes": 16,
+  "include_rules": ["*.bin"],
+  "exclude_rules": [],
+  "transforms": [],
+  "validation_reservation": {
+    "fraction": 0.001,
+    "method": "domain-separated keyed hash of the document key",
+    "domain": "pithos-validation-v1"
+  },
+  "validation_note": "the legacy stream carries no document keys, so no validation split is derived on this path; validation comes from the full build",
+  "ordering": "locked object order IS the stream order (preserved exactly)",
+  "encoding": "inherited — the legacy stream's own [BOS] + tokens + [EOS] framing is preserved byte-for-byte",
+  "max_eos_drop_rate": 0.005,
+  "publish_root": null,
+  "publish_root_note": "immutable publish destination is pinned by the lock phase at build time (pass --publish-root at lock time)",
+  "outputs": {
+    "legacy": {"status": "planned", "role": "train", "format": "pithos_stream_v1", "chunk_tokens": 67108864, "token_budget": null, "description": "the locked legacy flat-token stream, re-chunked byte-preservingly into 2**26+1 objects"}
+  },
+  "identity": "no identity until built: a built corpus is identified by its manifest.json canonical sha256, verified at read time"
+}

@@ -1,0 +1,54 @@
+include:
+  ./default.yaml
+
+# Model
+model_config: 13B_C
+
+# Trainerless W2W data plane
+worker_to_worker: true
+worker_activation_cache: true
+trainerless: true
+trainerless_batch_size: 1
+trainerless_data_start_timeout: 600.0
+trainerless_adaptive_inflight: false
+trainerless_max_inflight: 64
+trainerless_prefetch_batches: 24
+w2w_forward_timeout: 120
+w2w_backward_timeout: 240 
+
+pithos_corpus: fineweb_edu_500B
+pithos_manifest_identity: 09efda55fcfb06ebb069539520d14fd9e0af9b0de99dfdb8d28baca19b3cf0db
+pithos_cache_dir: /tmp/pithos
+pithos_cache_budget_bytes: 6442450944
+pithos_prefetch_depth: 0
+pithos_sequence_length: 4096
+pithos_seed: 42
+
+# DHT Configuration
+num_handlers: 7
+num_stages: 13
+num_dht: 14
+
+# Metadata Store
+metadata_store_url: https://mcstest.pluralis.ai
+metadata_store_compress_requests: true
+
+# Training Coordinator
+training_coordinator_config:
+  init_args:
+    average_state_every: 5
+    ghost_phase1_steps: 50
+    ghost_phase2_steps: 20
+
+# State Averager
+state_avg_config:
+  init_args:
+    clip_grad_norm: 0.2774
+    clip_grad_norm_tail: 0.5547
+    clip_grad_norm_head: 0.2774
+    part_size_bytes: 2097152
+    # Requires delta_rule_averaging (enabled in reparam_llama default)
+    compression: agora_server.core.averaging.compression.BFloat16Compression
+
+# Training
+max_batch_size: {20: 1, 42: 2, 54: 3, 64: 4, 78: 5}

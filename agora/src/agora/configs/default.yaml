@@ -1,0 +1,149 @@
+# DHT
+num_handlers: null
+num_stages: ???
+num_dht: ???
+update_period: 30
+expiration: null
+stats_report_interval: 60
+log_per_peer_tcp: false
+
+# Metadata Store
+metadata_store_url: null
+metadata_store_require_signed_reads: false
+metadata_store_compress_requests: true
+
+# Model
+model_name: ???
+model_config: ???
+custom_module_path: null
+custom_args_path: null
+
+# Torch Optimizer
+optim_config:
+  class_name: torch.optim.AdamW
+  init_args:
+    lr: 0.001
+
+# Training Coordinator
+training_coordinator_config:
+  class_name: agora_server.core.coordination.training_coordinator_sparta_async_nstep.TrainingCoordinatorAsyncSparta
+  init_args:
+    target_batch_size: ???
+    auto_step_time: 3.0
+    max_allowed_stale: 3
+    load_state_retry_sleep: 5.0
+    allow_state_sharing: false
+    averaging_mode: client
+    load_state_sort_strategy: priority
+    batch_size_per_step: null
+    matchmaking_time: 5.0
+    averaging_timeout: 10.0
+    allreduce_timeout: ${training_coordinator_config.init_args.averaging_timeout}
+    next_chunk_timeout: 10.0
+    load_state_timeout: 480
+    reuse_grad_buffers: false
+    offload_optimizer: false
+    delay_optimizer_step: false
+    delay_grad_averaging: false
+    delay_state_averaging: false
+    average_state_every: 1
+    use_local_updates: false
+    performance_ema_alpha: 0.1
+    verbose: true
+
+# State Averager
+state_avg_config:
+  class_name: agora_server.core.averaging.state_averager_sparta.SpartaTrainingStateAverager
+  init_args:
+    sparse_avg: 0
+    sync_epoch_when_averaging: false
+    clip_grad_norm: null
+    clip_grad_norm_head: null
+    clip_grad_norm_tail: null
+    request_timeout: 3.0
+    averaging_alpha: 1.0
+    sender_timeout: 10.0
+    reducer_timeout: ${mul:2,${state_avg_config.init_args.sender_timeout}}
+    min_vector_size: 0
+    declare_state_period: 30
+    compression: agora_server.hivemind.compression.NoCompression
+    state_compression: agora_server.hivemind.compression.NoCompression
+    delta_rule_averaging: false
+
+# Gradient Buffer
+grad_buffer_config:
+  class_name: agora_server.core.averaging.local_gradient_buffer.LocalGradientBuffer
+  init_args: {}
+
+# Training
+min_batch_size: 1
+max_batch_size: 1
+weight_decay: 0.1
+no_optim_params: []
+no_decay_params: []
+scheduler: none
+num_training_steps: ???
+num_warmup_steps: 0
+compression: NONE
+bandwidth: 20
+active_period_timeout: ${sum:${training_coordinator_config.init_args.matchmaking_time},${training_coordinator_config.init_args.averaging_timeout},${state_avg_config.init_args.request_timeout},10}
+enable_tf32: false
+use_mixed_precision: false
+use_torch_compile: false
+compile_warmup_batches: 1
+min_lr_ratio: 0.01
+
+# Log Monitor Rules
+log_monitor_rules:
+  - name: accumulate
+    patterns: [".*accumulated (-?\\d+) samples for epoch.*"]
+    action: track_activity
+  - name: connection_error
+    # P2P/DHT connectivity death only. Excludes Metadata Store lines (soft-failed and
+    # retried by the client) and push metrics lines (counted and escalated by the push
+    # worker itself).
+    patterns: ["^(?!.*Metadata Store)(?!.*push metrics).*Connection refused.*"]
+    action: terminate
+    message: "An unknown connection error occurred. Exiting run."
+    signal_type: SIGTERM
+  - name: cuda_error
+    patterns: [".*Caught CUDA error.*"]
+    action: terminate
+    message: "Failed to connect to CUDA. Exiting run."
+    signal_type: SIGTERM
+  - name: trainerless_data_stream_failure
+    patterns: ['.*\[W2WInject\] data stream failed:.*']
+    action: terminate
+    message: "Trainerless data stream failed. Exiting run."
+    signal_type: SIGTERM
+  - name: error_in_grads
+    patterns: [".*Encountered incorrect value in grads.*"]
+    action: terminate
+    message: "Caught invalid value in gradients. Exiting run."
+    signal_type: SIGTERM
+  - name: ar_state_success
+    patterns: ["Averaged parameters with (\\d+) peers"]
+    action: reset_counters
+    resets_counters: [ar_state_timeout]
+  - name: ar_state_timeout
+    patterns: ["Averaging parameters failed with <class 'TimeoutError'>", "Averaging step failed: could not find a group"]
+    action: windowed_counted_terminate
+    message: "Too many failed all-reduce attempts. Exiting run."
+    signal_type: SIGTERM
+    threshold: 2
+    window_size: 3
+  - name: ram_mem_usage
+    patterns: ["Used RAM mem is (\\d+\\.\\d+)"]
+    action: threshold_terminate
+    message: "RAM usage exceeded threshold. Exiting run."
+    signal_type: SIGTERM
+    threshold: 0.8
+    compare: above
+  - name: server_start
+    patterns: [".*Server started with.*"]
+    action: set_started
+  - name: global_epoch_refresh_failure
+    patterns: [ "Timed out waiting for global progress update" ]
+    message: "Could not fetch global progress. Exiting run."
+    action: terminate
+    signal_type: SIGTERM
