@@ -14,7 +14,7 @@
     </a>
 </div>
 <div align="center">
-    <a href="https://dashboard.pluralis.ai/"><img alt="Dashboard"
+    <a href="https://dashboardtest.pluralis.ai/"><img alt="Dashboard"
     src="https://img.shields.io/badge/Dashboard-Online-62BB47"/></a>
     <a href="https://pluralis.ai/"><img alt="Website"
     src="https://img.shields.io/badge/PluralisResearch-Website-6F02B5"/></a>
@@ -37,7 +37,7 @@ Full documentation: [pluralis.ai/dev](https://pluralis.ai/dev/).
 Each participant's progress is logged - check their contribution in the dashboard.
 
 <div align="center">
-  <a href="https://dashboard.pluralis.ai/">
+  <a href="https://dashboardtest.pluralis.ai/">
     <img src="images/dashboard-button.svg" alt="Live Dashboard"/>
   </a>
 </div>
@@ -83,7 +83,7 @@ Create HuggingFace access token ([instruction](https://huggingface.co/docs/hub/e
 
 ## 🚀 Getting Started
 
-Before joining, check the live wait time on the [Dashboard](https://dashboard.pluralis.ai/). If joining is paused, check with the team for updates.
+Before joining, check the live wait time on the [Dashboard](https://dashboardtest.pluralis.ai/). If joining is paused, check with the team for updates.
 
 You will need a HuggingFace token — [create one here](https://huggingface.co/docs/hub/en/security-tokens) (no special permissions needed). Make sure port **49200** is open for inbound connections.
 
