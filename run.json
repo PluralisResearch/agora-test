@@ -1,6 +1,6 @@
 {
-    "run_config": "none",
-    "auth_server": "none",
-    "prom_gateway": "none",
-    "seeds": []
+    "run_config": "reparam_llama/13B_sparta_async_C.yaml",
+    "auth_server": "https://testing.pluralis.ai",
+    "prom_gateway": "https://metricstest.pluralis.ai",
+    "seeds": ["/ip4/44.243.56.125/tcp/29200/p2p/QmWZhY5tNZEb4z6UEpqkmC7Hc9cJHBL5oydRQqdxxy5KBC", "/ip4/44.252.55.73/tcp/29200/p2p/QmVvMcAwcd5WD8UUVbAjoyN9CkCBgRCNHDtgNTuvidAzcM"]
 }
