@@ -63,7 +63,7 @@ Each participant's progress is logged - check their contribution in the dashboar
 - One of the supported GPU models:
     - GeForce RTX 4090
     - GeForce RTX 5090
-    - RTX 4500 Ada / RTX PRO 4500
+    - RTX PRO 4500
     - RTX 6000 Ada
     - RTX PRO 6000
     - L40S
