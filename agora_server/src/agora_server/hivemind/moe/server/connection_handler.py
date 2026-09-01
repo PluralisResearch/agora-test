@@ -10,7 +10,9 @@
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
 import asyncio
+import ctypes
 import multiprocessing as mp
+import time
 
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Optional
@@ -44,6 +46,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+_HEARTBEAT_INTERVAL_S = 10.0
+
 
 class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
     """
@@ -58,6 +62,12 @@ class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
         onto *different* handler processes of the same worker, so the cache cannot be process-local:
         it is created once in the parent ``Server`` and shared across all handlers via an ``mp.Manager``.
         When ``None`` (flag off), every RPC behaves exactly as before.
+    :param handler_index: this handler's slot in ``heartbeat``, in ``Server.conn_handlers`` order
+    :param heartbeat: optional lock-free shared array of per-handler ``time.monotonic()`` stamps.
+        Written every ``_HEARTBEAT_INTERVAL_S`` from a task on the handler's own event loop and read
+        by the parent ``Server``'s liveness reporter, so a wedged loop surfaces as a growing age.
+        Each handler must write only its own slot -- single-writer slots are what make the array
+        safe without a lock.
     :param w2w_coordinator: optional cross-process hop learner (next-hop coordination plane). When
         provided, the forward AND backward RPCs parse the microbatch metadata and, if a w2w trainer
         taught a next and/or prev hop, log + count it. Purely observational: it never retains or acts
@@ -72,6 +82,8 @@ class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
         *,
         balanced: bool = True,
         shutdown_timeout: float = 3,
+        handler_index: int = 0,
+        heartbeat: ctypes.Array | None = None,
         start: bool = False,
         activation_cache: Optional["ActivationCache"] = None,
         w2w_coordinator: Optional["NextHopLearner"] = None,
@@ -80,6 +92,7 @@ class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
         super().__init__()
         self.dht, self.module_backends = dht, module_backends
         self.balanced, self.shutdown_timeout = balanced, shutdown_timeout
+        self.handler_index, self.heartbeat = handler_index, heartbeat
         self.activation_cache = activation_cache
         self.w2w_coordinator = w2w_coordinator
         self.w2w_forward_driver = w2w_forward_driver
@@ -101,6 +114,14 @@ class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
         self._w2w_bg_tasks.add(task)
         task.add_done_callback(self._w2w_bg_tasks.discard)
         return task
+
+    async def _stamp_heartbeat(self, heartbeat: ctypes.Array) -> None:
+        """Stamp this handler's heartbeat slot forever. Runs as a task on the handler's own event
+        loop: a wedged loop stops the stamps, which is exactly the failure the parent's liveness
+        reporter exists to expose (a thread in this process would keep stamping through the wedge)."""
+        while True:
+            heartbeat[self.handler_index] = time.monotonic()
+            await asyncio.sleep(_HEARTBEAT_INTERVAL_S)
 
     def run(self):
         torch.set_num_threads(1)
@@ -139,9 +160,14 @@ class ConnectionHandler(mp.context.ForkProcess, ServicerBase):
                 self.ready.set_exception(e)
                 return
 
+            heartbeat_task = (
+                None if self.heartbeat is None else asyncio.create_task(self._stamp_heartbeat(self.heartbeat))
+            )
             try:
                 await stop.wait()
             finally:
+                if heartbeat_task is not None:
+                    heartbeat_task.cancel()
                 await self.remove_p2p_handlers(self._p2p)
                 if receipt_servicer is not None:
                     from agora_server.core.server.w2w_dataplane import W2W_COORD_NAMESPACE, W2W_RECEIPT_NAMESPACE

@@ -138,25 +138,24 @@ class DHTHandlerThread(threading.Thread):
         self.stop = threading.Event()
 
     def run(self) -> None:
+        self.declare_once()
+        while not self.stop.wait(self.update_period):
+            self.declare_once()
+
+    def declare_once(self) -> None:
+        ghost_phases = [backend.optimizer.ghost_phase for backend in self.module_backends.values()]
         declare_experts(
             self.dht,
             self.module_backends.keys(),
             expiration_time=get_dht_time() + self.expiration,
-            ghost_phases=[backend.optimizer.ghost_phase for backend in self.module_backends.values()],
+            ghost_phases=ghost_phases,
             ghost_phase_start_epochs=[
                 backend.optimizer.ghost_phase_start_epoch for backend in self.module_backends.values()
             ],
         )
-        while not self.stop.wait(self.update_period):
-            declare_experts(
-                self.dht,
-                self.module_backends.keys(),
-                expiration_time=get_dht_time() + self.expiration,
-                ghost_phases=[backend.optimizer.ghost_phase for backend in self.module_backends.values()],
-                ghost_phase_start_epochs=[
-                    backend.optimizer.ghost_phase_start_epoch for backend in self.module_backends.values()
-                ],
-            )
+        # Scraped by WorkerPromMonitor into the ghost_phase gauge; no other role observes
+        # a worker's ghost phase in trainerless mode.
+        logger.info(f"[GhostPhase] phase: {max((phase.value for phase in ghost_phases), default=0)}")
 
 
 def declare_experts(

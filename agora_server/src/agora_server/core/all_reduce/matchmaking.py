@@ -176,9 +176,9 @@ class Matchmaking:
         self.min_matchmaking_time = min_matchmaking_time
         self.check_interval = check_interval
 
-    def get_max_peers(self):
+    async def get_max_peers(self):
         try:
-            response = self.dht.get(self.prefix.split("_")[0] + ".0.", latest=True)
+            response = await self.dht.get(self.prefix.split("_")[0] + ".0.", latest=True, return_future=True)
             if isinstance(response, ValueWithExpiration) and isinstance(response.value, dict):
                 return len(response.value)
 
@@ -206,7 +206,7 @@ class Matchmaking:
 
         # Wait for peers to join the group
         start_time = time.time()
-        max_peers = self.get_max_peers()
+        max_peers = await self.get_max_peers()
 
         # Accumulate all peers that issue join_group
         all_peers_data = {}  # peer_id_bytes -> data_for_gather
@@ -217,7 +217,7 @@ class Matchmaking:
 
             if len(all_peers_data) > max_peers:
                 # Outdated max_peers information, check again
-                max_peers = self.get_max_peers()
+                max_peers = await self.get_max_peers()
                 await asyncio.sleep(self.check_interval)
                 continue
 

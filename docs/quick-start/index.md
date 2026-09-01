@@ -26,6 +26,6 @@ python3 agora_cli.py
 The CLI will guide you through the setup process.
 
 !!! info "Check run status before joining"
-    Live wait times are on the [Dashboard](https://dashboard.pluralis.ai/) in the **Overview** tab.
+    Live wait times are on the [Dashboard](https://agora-testing.pluralis.ai/) in the **Overview** tab.
 
-Progress is logged live on the [Dashboard](https://dashboard.pluralis.ai/).
+Progress is logged live on the [Dashboard](https://agora-testing.pluralis.ai/).

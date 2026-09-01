@@ -184,6 +184,7 @@ class PluralisAuthorizer(TokenAuthorizerBase):
                 # init; the node may sit queued for a while) for the authorizer's
                 # clock-skew check.
                 json={**self.peer_info, "client_time": time.time()},
+                timeout=30,
             )
 
             response.raise_for_status()
@@ -201,6 +202,8 @@ class PluralisAuthorizer(TokenAuthorizerBase):
                     # AWS might return non-JSON error responses, so fallback to a generic message
                     error_detail = "Request is blocked from AWS"
                 raise NonRetriableError(error_detail) from None
+            raise e
+        except requests.exceptions.Timeout as e:
             raise e
         except requests.exceptions.ConnectionError as e:
             raise e

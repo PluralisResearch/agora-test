@@ -15,7 +15,7 @@ import threading
 
 from collections.abc import Callable, Sequence
 from functools import partial
-from time import perf_counter
+from time import monotonic, perf_counter
 from typing import Any
 
 import torch
@@ -63,6 +63,41 @@ from agora_server.utils.subspace import load_ss_components
 
 
 logger = get_logger(__name__)
+
+_HANDLER_STALE_THRESHOLD_S = 60.0
+
+
+def _format_handler_liveness(ages: Sequence[float]) -> str:
+    """Format the ``[HandlerLiveness]`` stats line scraped by WorkerPromMonitor.
+
+    Args:
+        ages (Sequence[float]): Seconds since each connection handler's last heartbeat stamp, in
+            ``Server.conn_handlers`` order.
+    """
+    stale = sum(1 for age in ages if age > _HANDLER_STALE_THRESHOLD_S)
+    ages_s = "/".join(f"{age:.1f}" for age in ages)
+    return f"[HandlerLiveness] stale: {stale}, ages_s: {ages_s}"
+
+
+def _format_w2w_send_line(stats: dict[str, int]) -> str:
+    """Format the ``[W2WSend]`` stats line scraped by WorkerPromMonitor.
+
+    The aggregate prefix is a stable scrape contract. Per-target push-failure counts
+    (``push_fail:<uid>`` keys in ``stats``) ride an optional trailing segment with its own regex,
+    so fleet-wide aggregation can name the receiver the pushes keep failing to.
+    """
+    line = (
+        f"[W2WSend] entries: {stats.get('entries', 0)}, accepted_forward: {stats.get('accepted_forward', 0)}, "
+        f"accepted_backward: {stats.get('accepted_backward', 0)}, busy: {stats.get('busy', 0)}, "
+        f"forward_pushes: {stats.get('forward_pushes', 0)}, backward_pushes: {stats.get('backward_pushes', 0)}, "
+        f"busy_retries: {stats.get('busy_retries', 0)}, drops: {stats.get('drops', 0)}, "
+        f"push_errors: {stats.get('push_errors', 0)}"
+    )
+    per_target = {k.removeprefix("push_fail:"): v for k, v in stats.items() if k.startswith("push_fail:")}
+    if per_target:
+        pairs = " ".join(f"{uid}={count}" for uid, count in sorted(per_target.items()))
+        line += f", per_target: {pairs}"
+    return line
 
 
 def _compile_warmup(
@@ -234,15 +269,21 @@ class Server(threading.Thread):
         self._shutdown_started = threading.Event()
         self._shutdown_lock = threading.Lock()
 
+        # lock=False: each handler writes only its own slot and the reporter needs no cross-slot
+        # consistency (aligned 8-byte accesses are atomic on our targets), while a shared lock
+        # could let a handler frozen mid-stamp block every other stamp and the reporter itself.
+        self.handler_heartbeat = mp.Array("d", num_connection_handlers, lock=False)
         self.conn_handlers = [
             ConnectionHandler(
                 dht,
                 self.module_backends,
+                handler_index=index,
+                heartbeat=self.handler_heartbeat,
                 activation_cache=activation_cache,
                 w2w_coordinator=w2w_coordinator,
                 w2w_forward_driver=w2w_forward_driver,
             )
-            for _ in range(num_connection_handlers)
+            for index in range(num_connection_handlers)
         ]
         self.runtime = Runtime(self.module_backends, **kwargs)
 
@@ -324,7 +365,7 @@ class Server(threading.Thread):
         trainerless_occupancy_high: float = 10.0,
         trainerless_prefetch_batches: int = 4,
         trainerless_batch_size: int = 1,
-        trainerless_data_start_timeout: float = 300.0,
+        trainerless_data_start_timeout: float = 900.0,
         pithos_corpus: str | None = None,
         pithos_manifest_identity: str | None = None,
         pithos_cache_dir: str | None = None,
@@ -593,18 +634,33 @@ class Server(threading.Thread):
 
                 params = [group for group in params if group["params"]]
 
+                if auxiliary:
+                    # Only optimizer-group parameters are averaged, and a reducer never runs
+                    # forward/backward, so every other module tensor can be released.
+                    optim_param_ids = {id(p) for group in params for p in group["params"]}
+                    released_bytes = 0
+                    for tensor in list(expert.parameters()) + list(expert.buffers()):
+                        if id(tensor) not in optim_param_ids:
+                            released_bytes += tensor.numel() * tensor.element_size()
+                            tensor.data = torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                    logger.info(f"Reducer released {released_bytes / 2**30:.2f} GiB of non-averaged module tensors")
+
                 # Load subspace components if needed
                 if model_conf.use_compression and model_conf.ss_component_path:
-                    if not storage_access:
-                        storage_access = {}
+                    if auxiliary:
+                        # Reducers never read weight values, so the components are dead weight.
+                        logger.info("Reducer skips subspace component download")
+                    else:
+                        if not storage_access:
+                            storage_access = {}
 
-                    ss_comps = load_ss_components(
-                        model_conf.ss_component_path,
-                        **storage_access,
-                    )
-                    expert.load_comp(ss_comps)
-                    logger.info("Succeeded loading remote subspace components")
-                    expert.ss_regularize()
+                        ss_comps = load_ss_components(
+                            model_conf.ss_component_path,
+                            **storage_access,
+                        )
+                        expert.load_comp(ss_comps)
+                        logger.info("Succeeded loading remote subspace components")
+                        expert.ss_regularize()
 
                 optimizer_lock = mp.Lock()
 
@@ -615,7 +671,14 @@ class Server(threading.Thread):
                 # loss_per_token; ModuleBackend's schema inference would otherwise
                 # build a single-tensor schema and silently drop grad_hidden at
                 # serialization. Other experts keep the standard ModuleCollab path.
-                if fused_tail and expert_name == "lm_tail":
+                if auxiliary:
+                    # Reducers never serve forward/backward and never start the runtime,
+                    # so the output schema is unused; a placeholder skips the schema-
+                    # inference forward pass, which materializes a full autograd graph
+                    # of the stage on CPU.
+                    backend_cls = ModuleCollab
+                    outputs_schema = args_schema[0]
+                elif fused_tail and expert_name == "lm_tail":
                     backend_cls = TailModuleCollab
                     # args_schema = (hidden_descr, labels_descr, loss_weight_descr).
                     # Build the loss descriptor by running TailExpert.forward(hidden, labels)
@@ -977,8 +1040,19 @@ class Server(threading.Thread):
         if self.checkpoint_saver is not None and isinstance(self.checkpoint_saver, threading.Thread):
             self.checkpoint_saver.start()
 
+        # Pre-stamp so a handler that wedges before its first stamp shows a growing age from
+        # server start rather than a boot-epoch artifact.
+        self.handler_heartbeat[:] = [monotonic()] * len(self.conn_handlers)
         for handler in self.conn_handlers:
             handler.run_in_background()
+
+        # Reducers are built with num_handlers=0: nothing to monitor, so no liveness reporter.
+        if self.conn_handlers:
+            threading.Thread(
+                target=self._run_handler_liveness_reporter,
+                name="handler-liveness-reporter",
+                daemon=True,
+            ).start()
 
         if self.activation_cache is not None:
             threading.Thread(
@@ -1112,16 +1186,31 @@ class Server(threading.Thread):
         interval = self._activation_cache_report_interval
         while not self._stop_serving.wait(interval):
             try:
-                s = self.w2w_forward_driver.stats()
-                logger.info(
-                    f"[W2WSend] entries: {s.get('entries', 0)}, accepted_forward: {s.get('accepted_forward', 0)}, "
-                    f"accepted_backward: {s.get('accepted_backward', 0)}, busy: {s.get('busy', 0)}, "
-                    f"forward_pushes: {s.get('forward_pushes', 0)}, backward_pushes: {s.get('backward_pushes', 0)}, "
-                    f"busy_retries: {s.get('busy_retries', 0)}, drops: {s.get('drops', 0)}, "
-                    f"push_errors: {s.get('push_errors', 0)}"
-                )
+                logger.info(_format_w2w_send_line(self.w2w_forward_driver.stats()))
             except Exception as e:
                 logger.warning(f"[W2WSend] failed to report stats: {type(e).__name__}")
+
+    def _run_handler_liveness_reporter(self):
+        """Periodically log a ``[HandlerLiveness]`` stats line (scraped by WorkerPromMonitor). Each
+        connection handler stamps its heartbeat slot from its own event loop, so a handler whose
+        loop wedged -- alive and registered with the p2p daemon, but never servicing a stream --
+        shows up here as a growing age. Runs in a daemon thread on every server that has connection
+        handlers and stops when the server begins shutdown."""
+        interval = self._activation_cache_report_interval
+        while not self._stop_serving.wait(interval):
+            try:
+                # Snapshot before reading the clock so a stamp landing in between cannot yield a
+                # negative age (which would break the scrape regex).
+                stamps = self.handler_heartbeat[:]
+                now = monotonic()
+                ages = [now - stamp for stamp in stamps]
+                line = _format_handler_liveness(ages)
+                if any(age > _HANDLER_STALE_THRESHOLD_S for age in ages):
+                    logger.warning(line)
+                else:
+                    logger.info(line)
+            except Exception as e:
+                logger.warning(f"[HandlerLiveness] failed to report stats: {type(e).__name__}")
 
     def shutdown(self):
         """Gracefully terminate the server, process-safe.

@@ -24,7 +24,7 @@ The S3 snapshot lags the live parameter state; it is published periodically, not
 
 ## 3. Queue
 
-The queue is not an at-capacity waiting list: if the swarm is already full the join is rejected outright at authorization, with no waiting list. The queue paces incoming joins when there is still room: it prevents many simultaneous joins from overwhelming trainers and gives the swarm time to stabilize after each new peer joins. The client remains queued with the downloaded state retained, so when its position clears it transitions directly to sync mode without re-downloading. The client logs a position estimate once per minute, and live per-stage occupancy is on the [Dashboard](https://dashboard.pluralis.ai/) under **Overview**. If concurrent-join pacing is not required at authorization time, this step is skipped entirely.
+The queue is not an at-capacity waiting list: if the swarm is already full the join is rejected outright at authorization, with no waiting list. The queue paces incoming joins when there is still room: it prevents many simultaneous joins from overwhelming trainers and gives the swarm time to stabilize after each new peer joins. The client remains queued with the downloaded state retained, so when its position clears it transitions directly to sync mode without re-downloading. The client logs a position estimate once per minute, and live per-stage occupancy is on the [Dashboard](https://agora-testing.pluralis.ai/) under **Overview**. If concurrent-join pacing is not required at authorization time, this step is skipped entirely.
 
 ---
 

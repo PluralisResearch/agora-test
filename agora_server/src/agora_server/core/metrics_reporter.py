@@ -59,11 +59,14 @@ class TrainerMetricsReporter:
         self.total_tokens_processed = resume_from_token
         self.logger = logger
 
-    def report_train_step(self, loss: float, global_step: int) -> None:
+    def report_train_step(self, loss: float | None, global_step: int) -> None:
         self.num_batches_processed += self.per_device_train_batch_size
         if self.sequence_length:
             self.total_tokens_processed += self.per_device_train_batch_size * self.sequence_length
-        self.last_train_loss = loss
+        # A missing or zero loss (a completed batch whose loss report was lost) still counts
+        # the batch and its tokens but never becomes a loss sample.
+        if loss:
+            self.last_train_loss = loss
 
         # Send training loss statistics periodically
         curr_time = get_dht_time()

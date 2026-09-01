@@ -58,6 +58,7 @@ GPU_PEAK_FLOPS = {
     # Workstation / Pro — Ada / Blackwell
     "RTX 6000 Ada": {"fp32": 91.1e12,  "tf32": 182e12,    "bf16": 364e12},      # https://www.nvidia.com/en-us/products/workstations/rtx-6000/
     "RTX PRO 6000": {"fp32": 126e12,   "tf32": 252e12,    "bf16": 504e12},      # https://www.nvidia.com/en-us/data-center/rtx-pro-6000-blackwell-server-edition/
+    "RTX PRO 4500": {"fp32": 51e12,    "tf32": 101.5e12,  "bf16": 203e12},      # https://www.nvidia.com/en-us/data-center/rtx-pro-4500-blackwell-server-edition/ quotes sparse tensor numbers (203/406); dense is half. EC2 G7.
     # GeForce — Ampere consumer (TF32 = 2x FP32, BF16 = 4x FP32 dense)
     "RTX 3090":     {"fp32": 35.6e12,  "tf32": 71.15e12,  "bf16": 142.3e12},
     "RTX 3090 Ti":  {"fp32": 40e12,    "tf32": 80e12,     "bf16": 160e12},      # NVIDIA marketing page quotes 160/320 with sparsity; dense is half

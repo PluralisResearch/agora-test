@@ -255,7 +255,8 @@ class TrainingCoordinatorAsyncSparta(TrainingCoordinatorBase):
             with self.optimizer_lock:
                 self._update_global_epoch(grad_scaler)
 
-            if self.model.model_args.use_compression:
+            # Auxiliary peers release their non-averaged weights at startup; there is nothing to regularize.
+            if self.model.model_args.use_compression and not self.auxiliary:
                 self.model.ss_regularize()
 
             self.in_update = False

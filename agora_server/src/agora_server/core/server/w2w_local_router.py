@@ -267,7 +267,11 @@ class W2WLocalRouter:
                 with self._lock:
                     self._leases.pop(key, None)
                 self._bump("expired_leases")
-        self._mailbox.gc(max_age=2 * self._lease_ttl)
+        # FIXME: mailbox sweeping is disabled on this path. gc() fetches the whole shared dict in
+        # one synchronous manager call on the handler event loop, and is the prime suspect for
+        # blocking a handler process indefinitely. Unclaimed receipts now accumulate (tens of
+        # bytes each, failure paths only) until the sweep is reinstated off the hot path.
+        # self._mailbox.gc(max_age=2 * self._lease_ttl)
 
     def _settle(self, reservation: ExpertReservation, interval: float) -> None:
         throughput = self.balancer.throughputs.get(reservation.uid)

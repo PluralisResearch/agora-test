@@ -110,7 +110,7 @@ Detailed logs are written to `logs/server_gpu<ID>.log`.
 
 ## Verifying your contribution
 
-Once training starts, your participation appears on the [Dashboard](https://dashboard.pluralis.ai/). Look for your node by HuggingFace username.
+Once training starts, your participation appears on the [Dashboard](https://agora-testing.pluralis.ai/). Look for your node by HuggingFace username.
 
 ---
 

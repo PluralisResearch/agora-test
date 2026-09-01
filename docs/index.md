@@ -50,7 +50,7 @@ Pluralis-8B is a collective pre-training pilot on **Agora**, the system that con
 
 ## Earning points
 
-Every node accrues a **score** combining the raw pflops it processes with a baseline 1 PFLOP per hour for time spent active in the swarm. The dashboard sums scores across all the peers running under one account and ranks contributors live on the [public leaderboard](https://dashboard.pluralis.ai/).
+Every node accrues a **score** combining the raw pflops it processes with a baseline 1 PFLOP per hour for time spent active in the swarm. The dashboard sums scores across all the peers running under one account and ranks contributors live on the [public leaderboard](https://agora-testing.pluralis.ai/).
 
 !!! info "Higher = more pflops"
     More uptime and faster GPUs both translate directly to a higher rank.

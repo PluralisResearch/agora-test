@@ -55,12 +55,12 @@ logger = get_logger(__name__)
 OWNER_TAG_FORMAT = b"[owner:_key_]"
 _OWNER_TAG_RE = re.compile(re.escape(OWNER_TAG_FORMAT).replace(b"_key_", rb"(.+?)"))
 
-# Rate-limit for the accepted-unsigned-record warning: unsigned records are
-# routine while old writers remain in the swarm, so warn with a count, at most
-# once per window. Lock-free on purpose — a racy duplicate warning is fine.
-_UNSIGNED_WARN_INTERVAL_S = 60.0
+# Rate-limit for the accepted-unsigned-record log line: unsigned records are
+# routine while old writers remain in the swarm, so log with a count, at most
+# once per window. Lock-free on purpose — a racy duplicate line is fine.
+_UNSIGNED_LOG_INTERVAL_S = 60.0
 _unsigned_seen_count = 0
-_unsigned_last_warn = 0.0
+_unsigned_last_log = 0.0
 
 
 class EnvelopeVerificationError(ValueError):
@@ -192,12 +192,12 @@ def _check_owner_tags(key: Any, subkey: Any, pubkey: bytes) -> None:
 
 
 def _note_unsigned(key: Any) -> None:
-    global _unsigned_seen_count, _unsigned_last_warn
+    global _unsigned_seen_count, _unsigned_last_log
     _unsigned_seen_count += 1
     now = time.monotonic()
-    if now - _unsigned_last_warn >= _UNSIGNED_WARN_INTERVAL_S:
-        _unsigned_last_warn = now
-        logger.warning(
+    if now - _unsigned_last_log >= _UNSIGNED_LOG_INTERVAL_S:
+        _unsigned_last_log = now
+        logger.debug(
             f"Accepted unsigned Metadata Store record for key {key!r} "
             f"({_unsigned_seen_count} unsigned reads so far; tolerated until signing is enforced)"
         )

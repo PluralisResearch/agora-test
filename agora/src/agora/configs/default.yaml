@@ -93,6 +93,9 @@ use_torch_compile: false
 compile_warmup_batches: 1
 min_lr_ratio: 0.01
 
+# Worker activation cache
+activation_cache_max_entries: 512
+
 # Log Monitor Rules
 log_monitor_rules:
   - name: accumulate
@@ -124,7 +127,7 @@ log_monitor_rules:
   - name: ar_state_success
     patterns: ["Averaged parameters with (\\d+) peers"]
     action: reset_counters
-    resets_counters: [ar_state_timeout]
+    resets_counters: [ar_state_timeout, averaging_size_mismatch]
   - name: ar_state_timeout
     patterns: ["Averaging parameters failed with <class 'TimeoutError'>", "Averaging step failed: could not find a group"]
     action: windowed_counted_terminate
@@ -132,12 +135,37 @@ log_monitor_rules:
     signal_type: SIGTERM
     threshold: 2
     window_size: 3
+  - name: averaging_size_mismatch
+    # Sparse partition/apply sizes can only disagree if this node's own mask/index state is
+    # corrupt; it then fails every round and poisons its AR groups. Windowed so a one-off
+    # transient never kicks.
+    patterns: ["Error in auto step: The size of tensor a \\(\\d+\\) must match the size of tensor b \\(\\d+\\)", "shape mismatch: value tensor of shape \\[\\d+\\] cannot be broadcast to indexing result of shape \\[\\d+\\]"]
+    action: windowed_counted_terminate
+    message: "Repeated tensor size mismatch in averaging (local state corruption). Exiting run."
+    signal_type: SIGTERM
+    threshold: 2
+    window_size: 2
+  - name: handler_liveness_ok
+    patterns: ['\[HandlerLiveness\] stale: 0']
+    action: reset_counters
+    resets_counters: [handler_stale]
+  - name: handler_stale
+    # A connection handler whose event loop stops heartbeating silently eats its share of
+    # incoming streams while the node reports no error itself (the body6.0.0 incident).
+    # Three consecutive stale reports (~3 min of handler silence) rule out transient
+    # event-loop starvation; any healthy report in between resets the window.
+    patterns: ['\[HandlerLiveness\] stale: [1-9]']
+    action: windowed_counted_terminate
+    message: "Connection handler wedged (stale heartbeat). Exiting run."
+    signal_type: SIGTERM
+    threshold: 3
+    window_size: 3
   - name: ram_mem_usage
     patterns: ["Used RAM mem is (\\d+\\.\\d+)"]
     action: threshold_terminate
     message: "RAM usage exceeded threshold. Exiting run."
     signal_type: SIGTERM
-    threshold: 0.8
+    threshold: 0.9
     compare: above
   - name: server_start
     patterns: [".*Server started with.*"]

@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import itertools
+import logging
 import math
 import queue
 import threading
@@ -29,6 +30,16 @@ from collections.abc import Callable, Generator, Iterator, MutableMapping
 from dataclasses import dataclass
 
 import torch
+
+from tenacity import (
+    RetryCallState,
+    Retrying,
+    before_sleep_log,
+    retry_if_exception_type,
+    stop_after_delay,
+    wait_exponential,
+)
+from tenacity.stop import stop_base
 
 from agora_server.core.batch_metadata import BatchMetadata
 from agora_server.core.metrics_reporter import TrainerMetricsReporter
@@ -46,6 +57,7 @@ from agora_server.hivemind.proto import runtime_pb2
 from agora_server.hivemind.utils import get_logger
 from agora_server.types import GhostPhase
 from pithos import CacheConfig, Corpus
+from pithos.errors import DownloadError
 from pithos.registry import resolve_corpus
 from pithos.torch import PithosBatchSource
 
@@ -58,6 +70,41 @@ _DROP_BACKOFF_S = 1.0
 _REAP_TICK_S = 0.05
 _ORPHAN_SWEEP_TICKS = 200
 _GHOST_PHASE_POLL_S = 0.5
+_DOWNLOAD_RETRY_BUDGET_S = 600.0
+_DOWNLOAD_RETRY_MAX_WAIT_S = 60.0
+
+
+class _StopWhenSet(stop_base):
+    """Tenacity stop condition that fires as soon as `event` is set."""
+
+    def __init__(self, event: threading.Event) -> None:
+        self._event = event
+
+    def __call__(self, retry_state: RetryCallState) -> bool:
+        return self._event.is_set()
+
+
+def _download_retrying(abort: threading.Event) -> Retrying:
+    """The retry policy for pithos transfers, cancellable through `abort`.
+
+    Only DownloadError is retried: it is pithos's "transfer failed" class (chunk and
+    manifest fetches alike), and its journaled partials make a retry resume rather than
+    restart. Identity, integrity, and config errors stay immediately terminal. Setting
+    `abort` wakes the backoff sleep and stops further attempts, so shutdown is never
+    held behind the retry budget.
+    """
+
+    def sleep_until_abort(seconds: float) -> None:
+        abort.wait(seconds)
+
+    return Retrying(
+        retry=retry_if_exception_type(DownloadError),
+        wait=wait_exponential(multiplier=1, max=_DOWNLOAD_RETRY_MAX_WAIT_S),
+        stop=stop_after_delay(_DOWNLOAD_RETRY_BUDGET_S) | _StopWhenSet(abort),
+        sleep=sleep_until_abort,
+        reraise=True,
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+    )
 
 
 @dataclass(frozen=True)
@@ -189,6 +236,7 @@ class PithosBatchStream:
         self.registry_path = registry_path
         self._next_stream_offset = 0
         self._iterator_active = False
+        self._abort = threading.Event()
         self._lock = threading.Lock()
 
     def __call__(self) -> _GuardedBatchIterator:
@@ -198,6 +246,10 @@ class PithosBatchStream:
                 raise RuntimeError("PithosBatchStream supports one active iterator")
             self._iterator_active = True
         return _GuardedBatchIterator(self._iterate_batches(), self._release_iterator)
+
+    def abort(self) -> None:
+        """Cancel in-progress download retries: wake the backoff sleep and fail the read."""
+        self._abort.set()
 
     def _release_iterator(self) -> None:
         with self._lock:
@@ -218,7 +270,8 @@ class PithosBatchStream:
 
     def _iterate_batches(self) -> Generator[PithosBatch, None, None]:
         try:
-            corpus = self._open_corpus()
+            retrying = _download_retrying(self._abort)
+            corpus = retrying(self._open_corpus)
             with PithosBatchSource(corpus) as source:
                 if source.identity != self.manifest_identity:
                     raise ValueError(
@@ -232,7 +285,7 @@ class PithosBatchStream:
                     with self._lock:
                         stream_offset = self._next_stream_offset
                     sample_start = self.data_idx + stream_offset * self.stream_count
-                    input_ids = source.read_strided(sample_start, self.stream_count, self.batch_size)
+                    input_ids = retrying(source.read_strided, sample_start, self.stream_count, self.batch_size)
                     with self._lock:
                         if self._next_stream_offset != stream_offset:
                             raise RuntimeError("PithosBatchStream position changed during a read")
@@ -315,6 +368,7 @@ class PithosShardStream:
         self._epoch = 0
         self._next_shard_offset = 0
         self._iterator_active = False
+        self._abort = threading.Event()
         self._lock = threading.Lock()
 
     def __call__(self) -> _GuardedBatchIterator:
@@ -324,6 +378,10 @@ class PithosShardStream:
                 raise RuntimeError("PithosShardStream supports one active iterator")
             self._iterator_active = True
         return _GuardedBatchIterator(self._iterate_batches(), self._release_iterator)
+
+    def abort(self) -> None:
+        """Cancel in-progress download retries: wake the backoff sleep and fail the read."""
+        self._abort.set()
 
     def _release_iterator(self) -> None:
         with self._lock:
@@ -344,7 +402,8 @@ class PithosShardStream:
 
     def _iterate_batches(self) -> Generator[PithosBatch, None, None]:
         try:
-            corpus = self._open_corpus()
+            retrying = _download_retrying(self._abort)
+            corpus = retrying(self._open_corpus)
             with PithosBatchSource(corpus) as source:
                 if source.identity != self.manifest_identity:
                     raise ValueError(
@@ -377,7 +436,7 @@ class PithosShardStream:
                     # epoch may be short (the injector derives sizes from shape).
                     rows = min(self.batch_size, shard_size - offset)
                     sample_start = epoch * total + shard_lo + offset
-                    input_ids = source.read(sample_start, rows)
+                    input_ids = retrying(source.read, sample_start, rows)
                     with self._lock:
                         if (self._epoch, self._next_shard_offset) != (epoch, offset):
                             raise RuntimeError("PithosShardStream position changed during a read")
@@ -582,7 +641,7 @@ class W2WHeadInjector:
         adaptive_inflight: bool = False,
         occupancy_low: float = 4.0,
         occupancy_high: float = 10.0,
-        data_start_timeout: float = 300.0,
+        data_start_timeout: float = 900.0,
     ):
         assert max_inflight >= 1
         if (
@@ -632,6 +691,12 @@ class W2WHeadInjector:
         self._own_peer_id: str | None = None
         self._this_maddrs: list[str] = []
         self._data_start_timeout = float(data_start_timeout)
+        if self._data_start_timeout <= _DOWNLOAD_RETRY_BUDGET_S:
+            logger.warning(
+                f"[W2WInject] data_start_timeout {self._data_start_timeout:g}s is within the "
+                f"{_DOWNLOAD_RETRY_BUDGET_S:g}s download retry budget: startup may abort while "
+                "the first fetch is still retrying"
+            )
         self._first_batch_ready = threading.Event()
         self._terminal_failure = threading.Event()
         self._terminal_error: Exception | None = None
@@ -690,6 +755,9 @@ class W2WHeadInjector:
 
     def shutdown(self) -> None:
         self._stop.set()
+        abort_downloads = getattr(self._batch_source, "abort", None)
+        if abort_downloads is not None:
+            abort_downloads()
         self._first_batch_ready.set()
         self._terminal_failure.set()
         if self._reaper_task is not None and self._loop is not None and self._loop.is_running():
@@ -802,7 +870,10 @@ class W2WHeadInjector:
             if not self._stop.is_set():
                 raise RuntimeError("Pithos data stream ended")
         except Exception as e:
-            self._record_data_failure(e)
+            # An error surfacing after shutdown (e.g. a read whose retries were
+            # aborted) is not a data failure, just the stream unwinding.
+            if not self._stop.is_set():
+                self._record_data_failure(e)
         finally:
             while not self._stop.is_set():
                 try:
@@ -948,7 +1019,7 @@ class W2WHeadInjector:
             finally:
                 self._completions.pop(seq, None)
             if outcome == "done":
-                self._reporter.report_train_step(loss if loss is not None else 0.0, seq)
+                self._reporter.report_train_step(loss, seq)
                 self._bump("completed")
                 if self._credits is not None:
                     self._credits.on_done(time.monotonic() - started)

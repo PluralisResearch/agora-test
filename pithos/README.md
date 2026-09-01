@@ -203,7 +203,7 @@ The approved public read API, implemented on top of the hardened cache:
 - `Corpus.from_name(...)` — the registry loader. `pithos/corpora.yaml` maps
   corpus NAMES to non-secret publication facts (URI with endpoint
   parameters, the immutable `manifest_identity` pin, per-corpus reader cache
-  overrides), so a consumer passes a name — e.g. `fineweb_edu_500B` — and
+  overrides), so a consumer passes a name — e.g. `fineweb_edu_1T` — and
   the reader figures the rest out. YAML
   parsing uses the consumer's own PyYAML (as `pithos.torch` uses the
   consumer's torch); see `pithos.registry`.
@@ -278,7 +278,7 @@ The URI may instead be a local publication directory, its exact
 `?endpoint_url=...&region=...&profile=...` for S3-compatible services).
 Public R2 is read over HTTPS without an SDK; private R2/S3 needs the `s3`
 extra. A registry name does the same with one line — for entries that carry
-a `uri` (the packaged `fineweb_edu_500B` entry deliberately does not: its
+a `uri` (the packaged `fineweb_edu_1T` entry deliberately does not: its
 location arrives at run time and the entry only pins the identity):
 
 ```python

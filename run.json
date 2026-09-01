@@ -2,5 +2,8 @@
     "run_config": "reparam_llama/13B_sparta_async_C.yaml",
     "auth_server": "https://testing.pluralis.ai",
     "prom_gateway": "https://metricstest.pluralis.ai",
-    "seeds": ["/ip4/44.243.56.125/tcp/29200/p2p/QmWZhY5tNZEb4z6UEpqkmC7Hc9cJHBL5oydRQqdxxy5KBC", "/ip4/44.252.55.73/tcp/29200/p2p/QmVvMcAwcd5WD8UUVbAjoyN9CkCBgRCNHDtgNTuvidAzcM"]
+    "seeds": [
+        "/ip4/35.94.183.59/tcp/29200/p2p/QmfKzP68oFAAggQmvWpNVobEA3AYrVm9jph1UDyUtodeUe",
+        "/ip4/35.85.232.81/tcp/29200/p2p/QmYrXN5e9KNwdHFRj4dFFnBuiTZmDVYncYWUgiVuxffDEx"
+    ]
 }

@@ -13,7 +13,7 @@ Your leaderboard score combines the raw pflops you have contributed with a prese
 - Every node accrues **compute points** equal to the raw pflops it has processed.
 - Every node also accrues **presence points**: a baseline 1 PFLOP for each hour the peer is active in the swarm, independent of hardware.
 - Scores are summed across all your peers: one account, multiple peers = additive, up to a per-account cap.
-- Live leaderboard on the [Dashboard](https://dashboard.pluralis.ai/), refreshed every few minutes.
+- Live leaderboard on the [Dashboard](https://agora-testing.pluralis.ai/), refreshed every few minutes.
 
 ---
 

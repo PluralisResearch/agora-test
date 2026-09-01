@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ctypes
+import functools
+import gc
 import multiprocessing as mp
 import os
 import random
@@ -68,6 +70,14 @@ GatheredData = Any
 PeerSortStrategy = Literal["priority", "uid"]
 
 logger = get_logger(__name__)
+
+@functools.lru_cache(maxsize=1)
+def _libc_malloc_trim():
+    """Resolve glibc's malloc_trim, or None where unavailable. Only auxiliary averagers call this."""
+    try:
+        return ctypes.CDLL("libc.so.6").malloc_trim
+    except (OSError, AttributeError):
+        return None
 
 
 class DecentralizedAverager(mp.Process, ServicerBase):
@@ -568,6 +578,14 @@ class DecentralizedAverager(mp.Process, ServicerBase):
                         " Please report this to hivemind issues."
                     )
                 )
+            if self.mode == AveragingMode.AUX:
+                # Auxiliary peers reduce every part of every round; without a trim the
+                # freed round buffers stay cached in allocator arenas and RSS ratchets.
+                gc.collect()
+                malloc_trim = _libc_malloc_trim()
+                if malloc_trim is not None:
+                    malloc_trim(0)
+                logger.debug("Auxiliary averager trimmed heap after averaging round")
 
     @contextlib.contextmanager
     def _register_allreduce_group(self, group_info: GroupInfo):

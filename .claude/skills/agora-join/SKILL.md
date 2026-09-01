@@ -199,7 +199,7 @@ Print mode-specific commands. Keep the lists short — the user reads these once
 
 ### Both
 
-- Dashboard: https://dashboard.pluralis.ai/ — your contribution shows up here.
+- Dashboard: https://agora-testing.pluralis.ai/ — your contribution shows up here.
 - "Re-run this skill any time to rejoin or reconfigure (pass `--reconfigure` to re-prompt all values)."
 - The `private_gpu${GPU_ID}.key` file at the repo root is your node's identity. Keep it; deleting it generates a new identity tied to a fresh node entry.
 

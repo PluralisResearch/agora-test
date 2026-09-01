@@ -195,6 +195,23 @@ class WorkerRegex:
     regex_pre_step_grad: str = r"Pre step total_grad:\s*([\d.]+)"
     post_step_grad: str = "post_step_grad"
     regex_post_step_grad: str = r"Post step total_grad:\s*([\d.]+)"
+    # Trainerless heads originate batches and log the loss reported back by the fused tail
+    # via TrainerMetricsReporter; among worker roles only they emit these lines. The batch
+    # count shares the loss line; the token odometer is cumulative and resets on restart.
+    head_loss: str = "head_loss"
+    regex_head_loss: str = r"train loss = ([0-9]+\.?[0-9]*)"
+    head_batches: str = "head_batches"
+    regex_head_batches: str = r"num batches process = (\d+)"
+    head_total_tokens: str = "head_total_tokens"
+    regex_head_total_tokens: str = r"total_tokens_processed = (\d+)"
+    # Successor-stage short bans from the sender-local router; emitted inside forked
+    # connection handler processes, so one bad peer can be banned once per handler.
+    ban_event: str = "ban"
+    regex_ban_event: str = r"Banned expert\s+([\w.]+)\s+reason=(\w+)\s+duration=([\d.]+)s"
+    # Own ghost phase (0=off, 1=receive-only, 2=warm-up), self-reported periodically by
+    # the expert announcement loop. Auxiliary peers (reducers) stay in phase 1 for life.
+    ghost_phase: str = "ghost_phase"
+    regex_ghost_phase: str = r"\[GhostPhase\] phase: (\d)"
     # GPU info
     gpu_tot: str = "gpu_total"
     regex_gpu_tot: str = r"GPU mem size is (\d+)Gb"
@@ -301,6 +318,15 @@ class WorkerRegex:
         r"busy: (\d+), forward_pushes: (\d+), backward_pushes: (\d+), "
         r"busy_retries: (\d+), drops: (\d+), push_errors: (\d+)"
     )
+    # Optional per-target trailer on the [W2WSend] line: cumulative push failures keyed by receiver
+    # uid, so fleet-wide aggregation names the receiver everyone keeps failing to push to.
+    w2w_push_fail: str = "w2w_push_fail"
+    regex_w2w_send_per_target: str = r"\[W2WSend\] .*, per_target: ((?:[\w.]+=\d+)(?: [\w.]+=\d+)*)"
+    # Connection-handler liveness line emitted by agora_server.core.server.server.Server: per-handler
+    # seconds since the last event-loop heartbeat stamp; stale = handlers whose loop stopped stamping.
+    handler_stale_count: str = "handler_stale_count"
+    handler_max_age_s: str = "handler_max_age_s"
+    regex_handler_liveness: str = r"\[HandlerLiveness\] stale: (\d+), ages_s: (\d+\.\d(?:/\d+\.\d)*)"
     # Processed data
     batch_step: str = "batch_step"
     regex_batch_step: str = r"accumulated (\d+) samples"
@@ -577,6 +603,35 @@ class WorkerPromMonitor(BasePromMonitor):
             self.metrics.record_operation(f"{self.worker_regex.post_step_grad}", val)
             return
 
+        # The reporter's loss line also carries the per-window batch count, so no return here.
+        match = re.search(self.worker_regex.regex_head_batches, log_entry)
+        if match:
+            self.metrics.record_operation(self.worker_regex.head_batches, int(match.group(1)))
+
+        match = re.search(self.worker_regex.regex_head_loss, log_entry)
+        if match:
+            val = float(match.group(1))
+            # A zero loss marks a completed batch whose loss report was lost, not a sample.
+            if val > 0:
+                self.metrics.record_operation(f"{self.worker_regex.head_loss}", val)
+            return
+
+        match = re.search(self.worker_regex.regex_head_total_tokens, log_entry)
+        if match:
+            self.metrics.record_operation(self.worker_regex.head_total_tokens, int(match.group(1)))
+            return
+
+        match = re.search(self.worker_regex.regex_ban_event, log_entry)
+        if match:
+            # Uid cardinality is bounded -- a sender only ever bans its successor stage's few experts.
+            self.metrics.record_error(f"{self.worker_regex.ban_event}_{match.group(2)}_{match.group(1)}")
+            return
+
+        match = re.search(self.worker_regex.regex_ghost_phase, log_entry)
+        if match:
+            self.metrics.record_operation(self.worker_regex.ghost_phase, int(match.group(1)))
+            return
+
         # GPU
         match = re.search(self.worker_regex.regex_gpu_tot, log_entry)
         if match:
@@ -735,6 +790,18 @@ class WorkerPromMonitor(BasePromMonitor):
             self.metrics.record_operation(self.worker_regex.w2w_send_busy_retries, int(match.group(7)))
             self.metrics.record_operation(self.worker_regex.w2w_send_drops, int(match.group(8)))
             self.metrics.record_operation(self.worker_regex.w2w_send_push_errors, int(match.group(9)))
+            target_match = re.search(self.worker_regex.regex_w2w_send_per_target, log_entry)
+            if target_match:
+                for pair in target_match.group(1).split():
+                    uid, _, count = pair.partition("=")
+                    self.metrics.record_operation(f"{self.worker_regex.w2w_push_fail}_{uid}", int(count))
+            return
+
+        match = re.search(self.worker_regex.regex_handler_liveness, log_entry)
+        if match:
+            self.metrics.record_operation(self.worker_regex.handler_stale_count, int(match.group(1)))
+            ages = [float(age) for age in match.group(2).split("/")]
+            self.metrics.record_operation(self.worker_regex.handler_max_age_s, max(ages))
             return
 
         # Processed data

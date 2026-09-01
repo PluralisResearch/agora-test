@@ -43,6 +43,7 @@ W2W_COORD_NAMESPACE = "w2w_coord"
 W2W_RECEIPT_NAMESPACE = "w2w_receipt"
 W2W_TERMINUS = "terminus"
 W2W_DROP = "drop"
+W2W_HOP_LOG_EVERY = 50
 
 
 class W2WPushStatus(IntEnum):
@@ -638,7 +639,9 @@ class DirectW2WDriver:
                 except Exception as e:
                     failed_uid, failed_reason = hop.hop.uid, type(e).__name__
                     excluded.add(hop.hop.uid)
-                    self._bump("push_errors")
+                    with self._lock:
+                        self._bump_locked("push_errors")
+                        self._bump_locked(f"push_fail:{hop.hop.uid}")
                     logger.warning(
                         f"[W2WSend] forward push uid={current_uid} seq={md.seq} -> {hop.hop.uid} "
                         f"failed: {type(e).__name__}: {e}"
@@ -666,7 +669,14 @@ class DirectW2WDriver:
         tensors: Sequence[runtime_pb2.Tensor],
         size_tensors: Sequence[torch.Tensor],
     ) -> bool:
-        bwd_md = dataclasses.replace(md, next_hop_uid=None, next_hop_peer_id=None)
+        bwd_md = dataclasses.replace(
+            md,
+            next_hop_uid=None,
+            next_hop_peer_id=None,
+            prev_hop_uid=None,
+            prev_hop_peer_id=None,
+            prev_hop_maddrs=None,
+        )
         try:
             await _connect_if_needed(p2p, hop, self.coord_timeout)
             stub = _get_server_stub(p2p, hop.peer_id)
@@ -675,11 +685,15 @@ class DirectW2WDriver:
             )
             if status == W2WPushStatus.ACCEPTED:
                 self._bump("backward_pushes")
+                if int(md.seq) % W2W_HOP_LOG_EVERY == 0:
+                    logger.info(f"[W2WHop] backward sent: {self.name} -> {hop.uid}@{hop.peer_id}")
                 return True
             logger.warning(f"[W2WSend] backward push to {hop.uid} rejected: {status.name} {reason}")
         except Exception as e:
             logger.warning(f"[W2WSend] backward push to {hop.uid} failed: {type(e).__name__}: {e}")
-            self._bump("push_errors")
+            with self._lock:
+                self._bump_locked("push_errors")
+                self._bump_locked(f"push_fail:{hop.uid}")
         return False
 
     async def resolve_next_hop(

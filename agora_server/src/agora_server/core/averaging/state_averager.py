@@ -591,6 +591,10 @@ class TrainingStateAverager(DecentralizedAverager):
                         logger.log(self.status_loglevel, f"Averaged parameters with {len(gathered)} peers")
                     except BaseException as e:
                         logger.log(self.status_loglevel, f"Averaging parameters failed with {type(e)}")
+                        # A control still in matchmaking runs forever and wedges the next delayed-update apply.
+                        if not averaging_control.done():
+                            logger.log(self.status_loglevel, "Cancelled the timed-out state averaging round")
+                            averaging_control.cancel()
                         gathered = {}
                     logger.info(f"All-reduce round finished at local epoch #{self.local_epoch}")
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="380" height="72" viewBox="0 0 380 72" role="img" aria-labelledby="dash-v5-title dash-v5-desc">
   <title id="dash-v5-title">Live Dashboard</title>
-  <desc id="dash-v5-desc">Open the live training run dashboard at dashboard.pluralis.ai</desc>
+  <desc id="dash-v5-desc">Open the live training run dashboard at agora-testing.pluralis.ai</desc>
 
   <!-- Panel -->
   <rect x="0.5" y="0.5" width="379" height="71" rx="3" ry="3" fill="#12121a" stroke="#2a2a3a"/>

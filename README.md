@@ -14,7 +14,7 @@
     </a>
 </div>
 <div align="center">
-    <a href="https://dashboardtest.pluralis.ai/"><img alt="Dashboard"
+    <a href="https://agora-testing.pluralis.ai/"><img alt="Dashboard"
     src="https://img.shields.io/badge/Dashboard-Online-62BB47"/></a>
     <a href="https://pluralis.ai/"><img alt="Website"
     src="https://img.shields.io/badge/PluralisResearch-Website-6F02B5"/></a>
@@ -37,7 +37,7 @@ Full documentation: [pluralis.ai/dev](https://pluralis.ai/dev/).
 Each participant's progress is logged - check their contribution in the dashboard.
 
 <div align="center">
-  <a href="https://dashboardtest.pluralis.ai/">
+  <a href="https://agora-testing.pluralis.ai/">
     <img src="images/dashboard-button.svg" alt="Live Dashboard"/>
   </a>
 </div>
@@ -59,7 +59,14 @@ Each participant's progress is logged - check their contribution in the dashboar
 
 **PC/Server with Nvidia GPU:**
 
-- Minimum 24GB GPU memory (RTX 4090 or equivalent)
+- Minimum 24GB GPU memory
+- One of the supported GPU models:
+    - GeForce RTX 4090
+    - GeForce RTX 5090
+    - RTX 4500 Ada / RTX PRO 4500
+    - RTX 6000 Ada
+    - RTX PRO 6000
+    - L40S
 - Minimum 80GB RAM per GPU (e.g. a 2-GPU machine needs 160GB total)
 - Minimum 80GB disk space
 
@@ -70,7 +77,7 @@ Each participant's progress is logged - check their contribution in the dashboar
 
 ### Network Requirements
 
-- Stable internet connection with a minimum of 200 Mbps bandwidth. Note that some cloud providers advertise shared bandwidth split across multiple tenants — the effective throughput may be significantly lower than advertised.
+- Stable internet connection with a minimum of 200 Mbps download and 100 Mbps upload bandwidth. Note that some cloud providers advertise shared bandwidth split across multiple tenants — the effective throughput may be significantly lower than advertised.
 - The port you are exposing (default is 49200) must be accessible to external connections.
 
 ### Cloud Services
@@ -83,7 +90,7 @@ Create HuggingFace access token ([instruction](https://huggingface.co/docs/hub/e
 
 ## 🚀 Getting Started
 
-Before joining, check the live wait time on the [Dashboard](https://dashboardtest.pluralis.ai/). If joining is paused, check with the team for updates.
+Before joining, check the live wait time on the [Dashboard](https://agora-testing.pluralis.ai/). If joining is paused, check with the team for updates.
 
 You will need a HuggingFace token — [create one here](https://huggingface.co/docs/hub/en/security-tokens) (no special permissions needed). Make sure port **49200** is open for inbound connections.
 
@@ -149,7 +156,7 @@ The CLI prompts for everything interactively. You can also pass values directly:
 *Docker:*
 
 ```bash
-docker build . -t pluralis_agora --label image_version=1
+docker build . -t pluralis_agora
 ```
 
 *Native (no Docker):*
@@ -221,7 +228,7 @@ CUDA_VISIBLE_DEVICES=<gpu_id> python3.13 agora/src/agora/run_server.py \
 *Docker:*
 
 ```bash
-docker run -d --name agora_gpu<gpu_id> --ipc=host --network=host \
+docker run -d --init --name agora_gpu<gpu_id> --ipc=host --network=host \
   --gpus device=<gpu_id> \
   -v $(pwd):/home -w /home \
   pluralis_agora \
@@ -246,7 +253,7 @@ When your node starts, it first runs network checks, downloads the model weights
 <pre>
 [NETWORK]  Running internet speed test...
 [DOWNLOAD] Downloading model weights...
-[DOWNLOAD] Model weights downloaded. Waiting for authorization...
+[DOWNLOAD] Model weights downloaded (<b>4096 MB</b> in 120s). Waiting for authorization...
 [AUTH]     Authorization queue: position <b>2</b>, estimated wait: <b>1m</b>
 [AUTH]     Access granted for <b>your_user</b>
 </pre>
@@ -263,16 +270,24 @@ Once authorized, training begins and you will see regular status updates:
 
 If you see `Processed [N] batches` updates regularly, your node is working correctly.
 
-When joining an active run, your node may first enter a **warmup period** to catch up with other nodes. During this time you will see:
+When joining an active run, your node first goes through a **sync period** to catch up with other nodes. It starts by synchronising weights (no batches are processed yet):
 
 <pre>
-[WARMUP] Node warmup started, catching up with other nodes
+[SYNC]     Synchronising weights with peers. Node won't process batches in this phase.
+[SYNC]     This phase will last 50 steps (until local epoch 120).
 </pre>
 
-This is normal. Once the node has caught up, it will begin processing batches and you will see:
+then synchronises the optimizer state (batches are processed, but the node doesn't contribute to weight averaging yet):
 
 <pre>
-[WARMUP] Node warmup complete
+[SYNC]     Synchronising optimizer state. Node is now processing batches, but doesn't contribute to weight averaging yet.
+[SYNC]     This phase will last 20 steps (until local epoch 140).
+</pre>
+
+This is normal. Once the node has caught up, you will see:
+
+<pre>
+[SYNC]     Sync complete. Node is now fully contributing to training.
 </pre>
 
 Check `logs/server_gpu<ID>.log` for detailed logs.
@@ -341,7 +356,7 @@ sudo chown -R <linux_user> <path/to/project>
 
 - **`Download is too slow, please ensure sufficient bandwidth and try again.`**
 
-    Your node took too long to download model weights, so it was dropped from the queue. Verify that your connection meets the 200 Mbps minimum and restart.
+    Your node took too long to download model weights, so it was dropped from the queue. Verify that your connection meets the bandwidth requirements (200 Mbps download / 100 Mbps upload) and restart.
 
 ### Network & Connectivity
 
@@ -367,7 +382,7 @@ sudo chown -R <linux_user> <path/to/project>
 
     System RAM usage exceeded the allowed threshold. Close other processes consuming memory and restart. If running inside Docker, increase the container's memory limit.
 
-- **`Server exited with -9`**
+- **`Server exited with code -9`**
 
     The server process was killed by the OS, usually because the instance ran out of system resources. Common causes include exceeding available RAM or hitting a per-process limit on open threads/file descriptors. Check system resource usage (`free -h`, `ulimit -u`, `ulimit -n`), ensure the machine meets the RAM requirements (80GB per GPU), and raise thread/file-descriptor limits if your instance enforces low defaults.
 
