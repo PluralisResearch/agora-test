@@ -39,7 +39,7 @@ AWS offers a wide range of GPU options; the cheapest 24 GB option that also meet
     - **Inbound rules** → **Edit inbound rules** → **Add rule**.
     - Type: `Custom TCP`, Port range: `49200`, Source: `0.0.0.0/0`.
 
-    <img class="docs-screenshot" src="../../../images/aws-inbound-rules.png" alt="AWS Inbound Rules" width="800">
+    <img class="docs-screenshot" src="../../images/aws-inbound-rules.png" alt="AWS Inbound Rules" width="800">
 
 4. **SSH in**:
 
@@ -66,7 +66,7 @@ Cheapest 24 GB configuration: an `NVIDIA L4` (24 GB VRAM) on `n4-highmem-16` (16
     - Source IPv4 ranges: `0.0.0.0/0`.
     - Protocols and ports: "Specified protocols and ports" → **TCP** `49200`.
 
-    <img class="docs-screenshot" src="../../../images/gcp-inbound-rules.png" alt="GCP Inbound Rules" width="800">
+    <img class="docs-screenshot" src="../../images/gcp-inbound-rules.png" alt="GCP Inbound Rules" width="800">
 
 4. **SSH in**: find the external IP under instance details:
 
@@ -99,15 +99,15 @@ Cheapest 24 GB option: **RTX 4090**, 24 GB VRAM, ≥80 GB RAM, 8 vCPUs. RTX A500
 
     1. (Non-template images only.) Open Pod settings (three horizontal lines on the pod card) → **Edit Pod**.
 
-        <img class="docs-screenshot" src="../../../images/runpod-edit-pod.png" alt="RunPod Edit Pod menu" width="800">
+        <img class="docs-screenshot" src="../../images/runpod-edit-pod.png" alt="RunPod Edit Pod menu" width="800">
 
     2. (Non-template images only.) Under **Expose TCP Ports** add `49200` and save (this restarts the pod).
 
-        <img class="docs-screenshot" src="../../../images/runpod-inbound-rules.png" alt="RunPod TCP port mapping" width="600">
+        <img class="docs-screenshot" src="../../images/runpod-inbound-rules.png" alt="RunPod TCP port mapping" width="600">
 
     3. Once restarted, click **Connect** to read the external port mapping for `49200` (the example below uses `17969`).
 
-        <img class="docs-screenshot" src="../../../images/runpod-external-port.png" alt="RunPod external port mapping" width="600">
+        <img class="docs-screenshot" src="../../images/runpod-external-port.png" alt="RunPod external port mapping" width="600">
 
     4. Pass both ports when launching Agora:
 
@@ -189,8 +189,8 @@ Cheapest 24 GB option: **RTX 4090**, 24 GB VRAM, 80 GB RAM, 8 vCPUs.
     - Click **Deploy Instance**.
 4. **Configure port forwarding during provisioning**: under **Port Forwarding** click **Request Port** and enter `49200`. After deploy, note the assigned external port.
 
-    <img class="docs-screenshot" src="../../../images/tensordock-external-port.png" alt="Tensordock Port Forwarding setup" width="800">
-    <img class="docs-screenshot" src="../../../images/tensordock-forwarded-ports.png" alt="Tensordock Forwarded Ports" width="600">
+    <img class="docs-screenshot" src="../../images/tensordock-external-port.png" alt="Tensordock Port Forwarding setup" width="800">
+    <img class="docs-screenshot" src="../../images/tensordock-forwarded-ports.png" alt="Tensordock Forwarded Ports" width="600">
 
     Pass both ports when launching Agora; `--announce_port` is the external port:
 
@@ -235,5 +235,5 @@ Lambda is positioned between hyperscalers and community marketplaces: managed ba
     - Cloud dashboard → **Firewall** → **Edit** in the **Inbound Rules** section.
     - Add a rule: Rule type `Custom TCP`, Port range `49200`, Source `0.0.0.0/0`.
 
-    <img class="docs-screenshot" src="../../../images/lambda-inbound-rules.png" alt="Lambda Inbound Rules" width="600">
+    <img class="docs-screenshot" src="../../images/lambda-inbound-rules.png" alt="Lambda Inbound Rules" width="600">
 5. **SSH in**: once the instance is up, copy the command from the **SSH Login** field.
