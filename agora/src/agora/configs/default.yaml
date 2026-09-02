@@ -110,9 +110,9 @@ log_monitor_rules:
     message: "An unknown connection error occurred. Exiting run."
     signal_type: SIGTERM
   - name: cuda_error
-    patterns: [".*Caught CUDA error.*"]
+    patterns: ["CUDA error"]
     action: terminate
-    message: "Failed to connect to CUDA. Exiting run."
+    message: "Encountered a CUDA error. Exiting run."
     signal_type: SIGTERM
   - name: trainerless_data_stream_failure
     patterns: ['.*\[W2WInject\] data stream failed:.*']
