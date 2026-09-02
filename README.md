@@ -18,7 +18,7 @@
     src="https://img.shields.io/badge/Dashboard-Online-62BB47"/></a>
     <a href="https://pluralis.ai/"><img alt="Website"
     src="https://img.shields.io/badge/PluralisResearch-Website-6F02B5"/></a>
-    <a href="https://pluralis.ai/dev/"><img alt="Docs"
+    <a href="https://pluralis.ai/docs/"><img alt="Docs"
     src="https://img.shields.io/badge/Docs-Website-C76e00"/></a>    
 </div>
 <!-- docs-exclude-end -->
@@ -31,7 +31,7 @@ Anyone with a 24 GB consumer GPU (e.g. an NVIDIA RTX 4090) can participate. Each
 
 By pooling compute from many sources, Agora makes it feasible to train larger models than any single participant's hardware could handle alone.
 
-Full documentation: [pluralis.ai/dev](https://pluralis.ai/dev/).
+Full documentation: [pluralis.ai/docs](https://pluralis.ai/docs/).
 
 <!-- docs-exclude-start -->
 Each participant's progress is logged - check their contribution in the dashboard.
@@ -82,7 +82,7 @@ Each participant's progress is logged - check their contribution in the dashboar
 
 ### Cloud Services
 
-Follow ([cloud services](https://pluralis.ai/dev/quick-start/setup-guides/cloud/)) for how to set up cloud instances that meet the requirements.
+Follow ([cloud services](https://pluralis.ai/docs/quick-start/setup-guides/cloud/)) for how to set up cloud instances that meet the requirements.
 
 ### Authentication
 
