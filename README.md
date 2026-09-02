@@ -97,7 +97,7 @@ You will need a HuggingFace token — [create one here](https://huggingface.co/d
 Then run:
 
 ```bash
-git clone https://github.com/PluralisResearch/agora
+git clone https://github.com/PluralisResearch/agora-test
 cd agora
 python3 agora_cli.py
 ```
