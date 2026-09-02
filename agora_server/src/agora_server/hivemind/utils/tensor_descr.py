@@ -23,7 +23,7 @@ from agora_server.hivemind.proto.runtime_pb2 import CompressionType
 from agora_server.hivemind.utils.serializer import MSGPackSerializer
 
 
-DUMMY_BATCH_SIZE = 2  # used for dummy runs only
+DUMMY_BATCH_SIZE = 3  # used for dummy runs only
 
 warnings.filterwarnings("ignore", "CUDA initialization*", category=UserWarning)
 
