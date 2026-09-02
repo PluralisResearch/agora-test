@@ -20,8 +20,8 @@ Each GPU automatically uses its own port (49200, 49201, ...). Make sure every po
 - **Native.** Run each command in a separate terminal (or tmux window).
 - **Docker.** Each instance gets its own container automatically.
 
-!!! info "Maximum 2 peers per account"
-    We allow up to **2 active peers per account**. We may relax the cap during the live run.
+!!! info "Maximum 5 peers per account"
+    We allow up to **5 active peers per account**. We may relax the cap during the live run.
 
 ---
 

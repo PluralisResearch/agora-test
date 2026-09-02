@@ -27,8 +27,8 @@ Before a machine can join Agora, it must meet a set of minimum requirements. The
 !!! info "Spot instances are supported"
     Spot / pre-emptible instances work for Agora. Pre-emption pauses your accrual rather than erasing it, and presence points credit for every active hour, so an interrupted run still earns a baseline.
 
-!!! info "Maximum 2 peers per account"
-    Scores sum across all peers running under the same HuggingFace identity, up to **2 active peers per account**. We may relax this cap during the live run.
+!!! info "Maximum 5 peers per account"
+    Scores sum across all peers running under the same HuggingFace identity, up to **5 active peers per account**. We may relax this cap during the live run.
 
 Check your GPU is visible:
 

@@ -51,4 +51,4 @@ The dashboard refreshes every few minutes, so a fresh contribution appears on th
 - **Faster hardware.** A GPU with more FLOPs per second gives you more compute pflops per minute.
 - **Long uptime.** Compute and presence both accrue continuously. Every hour your peer stays active credits 1 baseline PFLOP, so 24/7 operation on one card outscores 4 hr/day on the same card on both fronts.
 - **Stable network.** Disconnects do not erase accrued points; they pause accrual until the node is back online.
-- **Multiple peers per account.** Scores from peers running under the same identity sum. We allow up to **2 active peers per account**. We may relax the cap during the live run.
+- **Multiple peers per account.** Scores from peers running under the same identity sum. We allow up to **5 active peers per account**. We may relax the cap during the live run.
