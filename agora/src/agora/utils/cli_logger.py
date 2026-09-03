@@ -175,7 +175,7 @@ def _transform_download_success(m: re.Match, _msg: str) -> list[tuple[str, str]]
     ]
 
 
-_RE_AUTH_QUEUE = re.compile(r"Authorization queue\. Position: (\d+), Estimated wait: (\S+)")
+_RE_AUTH_QUEUE = re.compile(r"Authorization queue\. Position: (\d+), Estimated wait: (.+)$")
 
 
 def _transform_auth_queue(m: re.Match, _msg: str) -> list[tuple[str, str]]:
@@ -184,6 +184,20 @@ def _transform_auth_queue(m: re.Match, _msg: str) -> list[tuple[str, str]]:
         (
             "AUTH",
             f"Authorization queue: position {TextStyle.BOLD}{pos}{TextStyle.RESET}, estimated wait: {TextStyle.BOLD}{wait}{TextStyle.RESET}",
+        )
+    ]
+
+
+_RE_AUTH_WAITLIST = re.compile(r"On waitlist\. Position: (\d+)\.")
+
+
+def _transform_auth_waitlist(m: re.Match, _msg: str) -> list[tuple[str, str]]:
+    pos = m.group(1)
+    return [
+        (
+            "AUTH",
+            f"On waitlist: position {TextStyle.BOLD}{pos}{TextStyle.RESET}. "
+            "Waiting for a slot to open, you will join automatically when capacity is available.",
         )
     ]
 
@@ -262,6 +276,7 @@ _CLI_PATTERNS: list[tuple[str, re.Pattern, Callable | None]] = [
     ("DOWNLOAD", _RE_DOWNLOAD_PROGRESS, _transform_download_progress),
     ("DOWNLOAD", _RE_DOWNLOAD_SUCCESS, _transform_download_success),
     # Authorization
+    ("AUTH", _RE_AUTH_WAITLIST, _transform_auth_waitlist),
     ("AUTH", _RE_AUTH_QUEUE, _transform_auth_queue),
     ("AUTH", _RE_AUTH_GRANTED, _transform_auth_granted),
     # Network / server / training patterns
