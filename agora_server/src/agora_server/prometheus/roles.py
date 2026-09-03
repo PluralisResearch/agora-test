@@ -149,9 +149,23 @@ class BaseRoleMetrics:
         """Record an operation occurrence."""
         self.task_counter.labels(role=self.role_name, operation_type=operation_type).set(cnt)
 
-    def record_error(self, error_type):
-        """Record an error occurrence."""
-        self.error_counter.labels(role=self.role_name, error_type=error_type).inc()
+    def record_error(self, error_type, cnt=1):
+        """Record an error occurrence (or `cnt` occurrences at once)."""
+        self.error_counter.labels(role=self.role_name, error_type=error_type).inc(cnt)
+
+    def remove_operation(self, operation_type):
+        """Drop an operation series from the registry so it is no longer exported."""
+        try:
+            self.task_counter.remove(self.role_name, operation_type)
+        except KeyError:
+            pass
+
+    def remove_error(self, error_type):
+        """Drop an error series from the registry so it is no longer exported."""
+        try:
+            self.error_counter.remove(self.role_name, error_type)
+        except KeyError:
+            pass
 
     def record_flop(self, delta):
         """Record a delta change for FLOP operation."""
