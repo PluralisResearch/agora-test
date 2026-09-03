@@ -26,8 +26,6 @@ from logging.handlers import QueueHandler
 from pathlib import Path
 from typing import Any
 
-from torch.nn import Module
-
 from agora_server.hivemind.utils.logging import get_logger
 from agora_server.prometheus.roles import BaseRoleMetrics, DirectMetricsConfig, PushGatewayConfig, WorkerRoleMetrics
 from agora_server.utils.flops import (
@@ -36,6 +34,7 @@ from agora_server.utils.flops import (
     get_num_params,
     get_peak_flops,
 )
+from torch.nn import Module
 
 
 logger = get_logger(__name__)
@@ -144,6 +143,41 @@ class BasePromMonitor(threading.Thread):
     def start_logging(self, *args, **kwargs):
         """Start logging."""
         self.start_logs = True
+
+
+class BoundedLabelSet:
+    """Export at most `limit` label values of one metric, chosen by highest count.
+
+    Label values that embed a peer uid are unbounded over a node's lifetime because peers churn.
+    Counts for every label are tracked here; a label that drops out of the top set has its series removed, and is
+    re-exported at its full tracked count if it climbs back in, so exported values stay cumulative.
+    """
+
+    def __init__(self, limit: int, expose: Callable[[str, float], None], remove: Callable[[str], None]):
+        self.limit = limit
+        self._expose = expose
+        self._remove = remove
+        self._counts: dict[str, float] = {}
+        self._last_seen: dict[str, int] = {}
+        self._tick = 0
+        self.exposed: set[str] = set()
+
+    def count(self, label: str) -> float:
+        return self._counts.get(label, 0)
+
+    def update(self, label: str, count: float) -> None:
+        """Record the cumulative `count` for `label` and re-export the top `limit` labels."""
+        self._tick += 1
+        self._counts[label] = count
+        self._last_seen[label] = self._tick
+        # Highest count first; most recently updated wins a tie so a live peer beats a stale one
+        ranked = sorted(self._counts, key=lambda k: (-self._counts[k], -self._last_seen[k]))
+        top = set(ranked[: self.limit])
+        for stale in self.exposed - top:
+            self._remove(stale)
+        for lbl in top:
+            self._expose(lbl, self._counts[lbl])
+        self.exposed = top
 
 
 class WorkerRegex:
@@ -395,6 +429,9 @@ class WorkerRegex:
 class WorkerPromMonitor(BasePromMonitor):
     """Prometheus Monitor class for Worker role to parse logs and record metrics."""
 
+    # Per metric
+    MAX_UID_LABELS = 3
+
     def __init__(
         self,
         role_name: str,
@@ -458,12 +495,35 @@ class WorkerPromMonitor(BasePromMonitor):
 
         self.worker_regex = WorkerRegex()
 
+        self._push_fail_labels = BoundedLabelSet(
+            limit=self.MAX_UID_LABELS,
+            expose=self.metrics.record_operation,
+            remove=self.metrics.remove_operation,
+        )
+        self._ban_error_exported: dict[str, float] = {}
+        self._ban_labels = BoundedLabelSet(
+            limit=self.MAX_UID_LABELS,
+            expose=self._expose_ban_error,
+            remove=self._remove_ban_error,
+        )
+
         # Stateful vars
         self.begin_time = None
         self.begin_epoch = None
         self.trans_time = None
         self.trans_epoch = None
         self.state_ar_begin_time = None
+
+    def _expose_ban_error(self, label: str, count: float) -> None:
+        """Bring the exported ban counter for `label` up to `count` (counters can only be incremented)."""
+        delta = count - self._ban_error_exported.get(label, 0)
+        if delta > 0:
+            self.metrics.record_error(label, delta)
+            self._ban_error_exported[label] = count
+
+    def _remove_ban_error(self, label: str) -> None:
+        self.metrics.remove_error(label)
+        self._ban_error_exported.pop(label, None)
 
     def start_logging(
         self,
@@ -623,8 +683,8 @@ class WorkerPromMonitor(BasePromMonitor):
 
         match = re.search(self.worker_regex.regex_ban_event, log_entry)
         if match:
-            # Uid cardinality is bounded -- a sender only ever bans its successor stage's few experts.
-            self.metrics.record_error(f"{self.worker_regex.ban_event}_{match.group(2)}_{match.group(1)}")
+            label = f"{self.worker_regex.ban_event}_{match.group(2)}_{match.group(1)}"
+            self._ban_labels.update(label, self._ban_labels.count(label) + 1)
             return
 
         match = re.search(self.worker_regex.regex_ghost_phase, log_entry)
@@ -794,7 +854,7 @@ class WorkerPromMonitor(BasePromMonitor):
             if target_match:
                 for pair in target_match.group(1).split():
                     uid, _, count = pair.partition("=")
-                    self.metrics.record_operation(f"{self.worker_regex.w2w_push_fail}_{uid}", int(count))
+                    self._push_fail_labels.update(f"{self.worker_regex.w2w_push_fail}_{uid}", int(count))
             return
 
         match = re.search(self.worker_regex.regex_handler_liveness, log_entry)
