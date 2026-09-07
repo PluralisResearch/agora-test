@@ -34,65 +34,6 @@ from agora_server.utils.cloud_detect import detect_cloud_provider
 logger = get_logger(__name__)
 
 
-SPEEDTEST_SERVERS = [
-    {
-        "url": "http://fast.actualbroadband.com:8080/speedtest/upload.php",
-        "lat": "45.6018",
-        "lon": "-121.1848",
-        "name": "The Dalles, OR",
-        "country": "United States",
-        "cc": "US",
-        "sponsor": "Actual Broadband",
-        "id": "60580",
-        "host": "fast.actualbroadband.com:8080",
-    },
-    {
-        "url": "http://speed.rconnects.com:8080/speedtest/upload.php",
-        "lat": "45.2082",
-        "lon": "-122.0669",
-        "name": "Estacada, OR",
-        "country": "United States",
-        "cc": "US",
-        "sponsor": "Cascade Access, Inc (Reliance Connects)",
-        "id": "12013",
-        "host": "speed.rconnects.com:8080",
-    },
-    {
-        "url": "http://portland.speedtest.centurylink.net:8080/speedtest/upload.php",
-        "lat": "45.5236",
-        "lon": "-122.6750",
-        "name": "Portland, OR",
-        "country": "United States",
-        "cc": "US",
-        "sponsor": "CenturyLink",
-        "id": "10162",
-        "host": "portland.speedtest.centurylink.net:8080",
-    },
-    {
-        "url": "http://ptdvuspeedtest01p.allstream.com:8080/speedtest/upload.php",
-        "lat": "45.5236",
-        "lon": "-122.6750",
-        "name": "Portland, OR",
-        "country": "United States",
-        "cc": "US",
-        "sponsor": "allstream",
-        "id": "56593",
-        "host": "ptdvuspeedtest01p.allstream.com:8080",
-    },
-    {
-        "url": "http://speedtest.sherwoodbroadband.com:8080/speedtest/upload.php",
-        "lat": "45.3563",
-        "lon": "-122.8559",
-        "name": "Sherwood, OR",
-        "country": "United States",
-        "cc": "US",
-        "sponsor": "Sherwood Broadband",
-        "id": "33992",
-        "host": "speedtest.sherwoodbroadband.com:8080",
-    },
-]
-
-
 def _tcp_ping(host: str, port: int, count: int = 3, timeout: float = 3) -> float | None:
     """Measure TCP handshake RTT to host:port, averaged over `count` attempts.
 
@@ -173,20 +114,11 @@ def log_speedtest_results(
     reraise=True,
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
-def test_internet_speed(
-    ping_targets: list[tuple[str, int]],
-    find_best_speed_server: bool = False,
-) -> tuple[float, float, float | None]:
+def test_internet_speed(ping_targets: list[tuple[str, int]]) -> tuple[float, float, float | None]:
     """Measure download/upload internet speed and latency via TCP ping."""
     logger.info("Testing internet speed...")
 
     st = speedtest.Speedtest(secure=True)
-
-    if find_best_speed_server:
-        try:
-            st.get_best_server(SPEEDTEST_SERVERS)
-        except Exception:
-            pass
 
     # Perform the download speed test
     download_speed = st.download() / 1000000  # Convert to Mbps
@@ -218,7 +150,6 @@ def get_device_info() -> tuple[str, float, float]:
 def get_node_info(
     initial_peers: list[str],
     do_speed_test: bool = False,
-    find_best_speed_server: bool = False,
 ) -> NodeInfo:
     """Collect information about the node."""
     device_name, gpu_memory, ram = get_device_info()
@@ -236,7 +167,7 @@ def get_node_info(
                 ping_targets.append((match.group(1), int(match.group(2))))
 
         try:
-            download_speed, upload_speed, latency = test_internet_speed(ping_targets, find_best_speed_server)
+            download_speed, upload_speed, latency = test_internet_speed(ping_targets)
         except Exception:
             logger.error("An error occurred during the speed test, skipping")
             download_speed = upload_speed = latency = None
