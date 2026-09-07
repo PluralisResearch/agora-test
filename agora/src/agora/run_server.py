@@ -35,7 +35,13 @@ from agora.utils import (
 )
 from agora.utils.cli_logger import CLIFormatter, CLILogFilter
 from agora.utils.state_loader import StateDownloader, StateLoader
+from agora_server.core.address_book import peer_address_book_key
+from agora_server.core.metadata_store_token import MetadataStoreTokenProvider
+from agora_server.core.redis_dht import RedisDHT
+from agora_server.core.server.dht_handler import parse_expert_dht_value
 from agora_server.core.server.server import Server
+from agora_server.core.server.w2w_local_router import stage_names
+from agora_server.hivemind.p2p import PeerID
 from agora_server.hivemind.proto.runtime_pb2 import CompressionType
 from agora_server.hivemind.utils.logging import get_logger
 from agora_server.logging.log_monitor import LogMonitor, MonitorRule
@@ -140,6 +146,39 @@ def parse_args() -> dict[str, Any]:
 
     config_dict.update({k: v for k, v in args.items() if v is not None})
     return config_dict
+
+
+def _check_peer_id_available(args: dict[str, Any], authorizer: AgoraAuthorizer) -> None:
+    """Reject an existing peer before starting P2P or publishing any metadata."""
+    if args.get("metadata_store_url") is None:
+        return
+
+    metadata = RedisDHT(
+        metadata_store_url=args["metadata_store_url"],
+        token_provider=MetadataStoreTokenProvider(authorizer),
+        private_key=authorizer.local_private_key,
+        require_signed_reads=args.get("metadata_store_require_signed_reads", False),
+    )
+    try:
+        peer_id = PeerID.from_base58(authorizer.peer_id)
+        # Strict reads: an unavailable store must not be mistaken for an unused peer ID.
+        peer_present = metadata.get(peer_address_book_key(peer_id), raise_on_error=True) is not None
+        for stage in stage_names(args["num_stages"]):
+            if peer_present:
+                break
+            declarations = metadata.get(f"{stage}.0.", raise_on_error=True)
+            if declarations is not None:
+                # Check every stage: authorization may assign a different expert UID on restart.
+                peer_present = any(
+                    parse_expert_dht_value(entry.value[1])[0] == peer_id for entry in declarations.value.values()
+                )
+        if peer_present:
+            raise ServerCreationError(
+                "Peer_id already present in the system. Make sure no other instances of Agora "
+                "are running from this host or with the same private key, and try again in a few minutes."
+            )
+    finally:
+        metadata.shutdown()
 
 
 def main():
@@ -258,6 +297,7 @@ def main():
         def _run_auth() -> None:
             try:
                 authorizer.wait_for_authorization(timeout=None)
+                _check_peer_id_available(args, authorizer)
             except BaseException as e:
                 auth_exc.append(e)
                 if state_downloader:
