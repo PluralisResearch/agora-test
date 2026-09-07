@@ -175,7 +175,7 @@ def _check_peer_id_available(args: dict[str, Any], authorizer: AgoraAuthorizer) 
         if peer_present:
             raise ServerCreationError(
                 "Peer_id already present in the system. Make sure no other instances of Agora "
-                "are running from this host and try again in few minutes."
+                "are running from this host or with the same private key, and try again in a few minutes."
             )
     finally:
         metadata.shutdown()

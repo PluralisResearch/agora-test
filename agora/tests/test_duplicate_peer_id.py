@@ -18,7 +18,7 @@ from agora_server.types import GhostPhase, ServerCreationError
 
 MESSAGE = (
     "Peer_id already present in the system. Make sure no other instances of Agora "
-    "are running from this host and try again in few minutes."
+    "are running from this host or with the same private key, and try again in a few minutes."
 )
 STAGES = ["head", *[f"body{i}" for i in range(1, 12)], "tail"]
 OTHER_PEER = PeerID.from_base58("QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt")
