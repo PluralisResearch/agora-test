@@ -244,7 +244,7 @@ def main():
         clean_tmp(gpu_id=gpu_id)
 
         # Collect information about the node
-        node_info = get_node_info(args["initial_peers"], do_speed_test=True, find_best_speed_server=True)
+        node_info = get_node_info(args["initial_peers"], do_speed_test=True)
 
         if node_info.latency is None:
             logger.error("Latency measurement failed. Exiting run.")
