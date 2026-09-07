@@ -128,6 +128,11 @@ log_monitor_rules:
     patterns: ["Averaged parameters with (\\d+) peers"]
     action: reset_counters
     resets_counters: [ar_state_timeout, averaging_size_mismatch]
+  - name: ar_state_unfinished
+    patterns: ["State averaging still pending after timeout grace period"]
+    action: terminate
+    message: "State averaging did not stop after timeout. Exiting run."
+    signal_type: SIGTERM
   - name: ar_state_timeout
     patterns: ["Averaging parameters failed with <class 'TimeoutError'>", "Averaging step failed: could not find a group"]
     action: windowed_counted_terminate

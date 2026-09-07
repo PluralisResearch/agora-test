@@ -1,19 +1,21 @@
-"""Contain unfinished ARs without publishing tensors still owned by the child."""
+"""Contain unfinished ARs through the configured log monitor termination rule."""
 
 import logging
+import os
 import signal
-import subprocess
-import sys
 import threading
 
 from concurrent.futures import Future
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import yaml
 
 from agora_server.core.averaging import state_averager
 from agora_server.core.averaging.state_averager import TrainingStateAverager
+from agora_server.logging.log_monitor import LogMonitor, MonitorRule
 
 
 class AveragingControl(Future):
@@ -37,7 +39,6 @@ class AveragingControl(Future):
     def result(self, timeout=None):
         self.waits.append(timeout)
         if len(self.waits) == 2:
-            # Complete only once the parent has entered its grace-period wait.
             self.complete(self.after_timeout)
         return super().result(timeout=timeout)
 
@@ -45,33 +46,60 @@ class AveragingControl(Future):
 @pytest.fixture
 def parent(monkeypatch):
     monkeypatch.setattr(state_averager, "_AR_TIMEOUT_GRACE", 0.01)
-    # Never signal or exit the test runner itself.
+    # Catch regressions without signalling or exiting the test runner.
     killpg = Mock()
-    exit_process = Mock(side_effect=SystemExit("Unfinished all-reduce"))
-    monkeypatch.setattr(state_averager.os, "killpg", killpg)
-    monkeypatch.setattr(state_averager.os, "getpgrp", lambda: 12345)
-    monkeypatch.setattr(state_averager.os, "_exit", exit_process)
+    exit_process = Mock(side_effect=AssertionError("The averager must not exit the process"))
+    monkeypatch.setattr(os, "killpg", killpg)
+    monkeypatch.setattr(os, "getpgrp", lambda: 12345)
+    monkeypatch.setattr(os, "_exit", exit_process)
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    state_averager.logger.addHandler(handler)
     parent = SimpleNamespace(
         lock_optimizer=threading.Lock(),
         lock_averaging=threading.Lock(),
         lock_averaged_tensors=threading.Lock(),
         reuse_tensors=False,
+        delta_rule_averaging=False,
+        _averaging_failed=False,
         _update_scheduler=lambda: None,
-        _load_local_tensors_into_averager_=lambda: None,
+        _load_local_tensors_into_averager_=Mock(),
         _save_pre_averaging_state=lambda: None,
+        _apply_averaging_results_=Mock(),
+        _apply_optimizer_parameters_=Mock(),
         finished_optimizer_step=threading.Event(),
         finished_averaging_round=threading.Event(),
+        pending_updates=set(),
         delay_before_averaging=SimpleNamespace(update=lambda **kwargs: None),
         local_epoch=7026,
         status_loglevel=logging.INFO,
         sync_epoch_when_averaging=True,
         killpg=killpg,
         exit_process=exit_process,
+        records=records,
     )
     parent._wait_for_averaging = lambda control, timeout: TrainingStateAverager._wait_for_averaging(
         parent, control, timeout
     )
-    return parent
+    try:
+        yield parent
+    finally:
+        state_averager.logger.removeHandler(handler)
+        handler.close()
+
+
+@pytest.fixture
+def monitor(parent):
+    config_path = Path(__file__).resolve().parents[2] / "agora/src/agora/configs/default.yaml"
+    rules = yaml.safe_load(config_path.read_text())["log_monitor_rules"]
+    monitor = LogMonitor(rules=[MonitorRule.from_dict(rule) for rule in rules])
+    try:
+        yield monitor
+    finally:
+        monitor.stop()
+        monitor._log_queue.close()
+        monitor._log_queue.join_thread()
 
 
 def run_round(parent, control):
@@ -95,6 +123,8 @@ def test_completed_round_keeps_existing_behavior(parent, outcome):
     assert parent.finished_averaging_round.is_set()
     assert parent.local_epoch == (7027 if isinstance(outcome, dict) else 7026)
     assert control.waits == [0]
+    assert not parent._averaging_failed
+    assert not any(record.getMessage() == state_averager._AR_TIMEOUT_MESSAGE for record in parent.records)
     parent.killpg.assert_not_called()
     parent.exit_process.assert_not_called()
 
@@ -107,28 +137,55 @@ def test_child_completes_during_grace(parent, outcome):
     assert parent.finished_averaging_round.is_set()
     assert parent.local_epoch == (7027 if isinstance(outcome, dict) else 7026)
     assert control.waits == [0, 0.01]
+    assert not parent._averaging_failed
+    assert not any(record.getMessage() == state_averager._AR_TIMEOUT_MESSAGE for record in parent.records)
     parent.killpg.assert_not_called()
     parent.exit_process.assert_not_called()
 
 
-def test_pending_child_terminates_without_publishing_locked_tensors(parent):
+def test_pending_child_logs_fatal_error_without_publishing_locked_tensors(parent):
     control = AveragingControl()
     with parent.lock_averaged_tensors:
-        with pytest.raises(SystemExit, match="Unfinished all-reduce"):
+        with pytest.raises(state_averager._UnfinishedAllreduceError):
             run_round(parent, control)
-    parent.killpg.assert_called_once_with(12345, signal.SIGTERM)
-    parent.exit_process.assert_called_once_with(1)
     assert control.waits == [0, 0.01]
-    assert not control.done()  # Cancelling this future would hide unfinished work.
+    assert not control.done()
+    assert parent._averaging_failed
     assert not parent.finished_averaging_round.is_set()
+    assert sum(record.getMessage() == state_averager._AR_TIMEOUT_MESSAGE for record in parent.records) == 1
+    parent.killpg.assert_not_called()
+    parent.exit_process.assert_not_called()
 
 
-def test_signal_error_cannot_fall_through_to_finished_round(parent):
-    parent.killpg.side_effect = ProcessLookupError("process group disappeared")
-    with pytest.raises(SystemExit, match="Unfinished all-reduce"):
+def test_failed_averager_rejects_result_application_and_further_work(parent):
+    with pytest.raises(state_averager._UnfinishedAllreduceError):
         run_round(parent, AveragingControl())
-    parent.exit_process.assert_called_once_with(1)
-    assert not parent.finished_averaging_round.is_set()
+    parent._load_local_tensors_into_averager_.reset_mock()
+    with parent.lock_averaged_tensors:
+        with pytest.raises(state_averager._UnfinishedAllreduceError):
+            TrainingStateAverager.step(parent, apply_delayed_updates=True, increment_epoch=True)
+        next_control = AveragingControl()
+        with pytest.raises(state_averager._UnfinishedAllreduceError):
+            run_round(parent, next_control)
+    assert not next_control.triggered
+    assert parent.local_epoch == 7026
+    parent._apply_averaging_results_.assert_not_called()
+    parent._load_local_tensors_into_averager_.assert_not_called()
+
+
+def test_failure_while_waiting_for_updates_cannot_fall_through_to_apply(parent):
+    class BackgroundUpdate(Future):
+        def result(self, timeout=None):
+            parent._averaging_failed = True
+            self.set_exception(state_averager._UnfinishedAllreduceError(state_averager._AR_TIMEOUT_MESSAGE))
+            return super().result(timeout)
+
+    parent.pending_updates.add(BackgroundUpdate())
+    parent._allreduce_timeout = 0.01
+    with pytest.raises(state_averager._UnfinishedAllreduceError):
+        TrainingStateAverager.step(parent, wait_for_delayed_updates=True)
+    parent._apply_averaging_results_.assert_not_called()
+    parent._apply_optimizer_parameters_.assert_not_called()
 
 
 def test_other_parent_error_preserves_existing_cancellation(parent):
@@ -137,30 +194,47 @@ def test_other_parent_error_preserves_existing_cancellation(parent):
     run_round(parent, control)
     assert control.cancelled()
     assert parent.finished_averaging_round.is_set()
+    assert not parent._averaging_failed
     parent.killpg.assert_not_called()
     parent.exit_process.assert_not_called()
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Worker termination uses POSIX process groups")
-@pytest.mark.parametrize("ignore_sigterm", [False, True])
-def test_pending_child_really_terminates_isolated_process_group(ignore_sigterm):
-    # A new session makes this subprocess its own group; the test runner is outside it.
-    script = """
-import signal
-import sys
-from concurrent.futures import Future
-from agora_server.core.averaging import state_averager
-if sys.argv[1] == "True":
-    signal.signal(signal.SIGTERM, signal.SIG_IGN)
-state_averager._AR_TIMEOUT_GRACE = 0.01
-state_averager.TrainingStateAverager._wait_for_averaging(None, Future(), timeout=0)
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", script, str(ignore_sigterm)],
-        start_new_session=True,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == (1 if ignore_sigterm else -signal.SIGTERM), result.stderr
-    assert "terminating worker process group" in result.stderr
+def test_actual_fatal_log_triggers_configured_monitor_termination(parent, monitor):
+    with pytest.raises(state_averager._UnfinishedAllreduceError):
+        run_round(parent, AveragingControl())
+    parent.killpg.assert_not_called()
+    for record in parent.records:
+        monitor.queue_handler.handle(record)
+    monitor.start()
+    monitor.join(timeout=2)
+    assert not monitor.is_alive(), "The monitor did not recognize the averager's fatal log"
+    parent.killpg.assert_called_once_with(12345, signal.SIGTERM)
+    parent.exit_process.assert_not_called()
+
+
+@pytest.mark.parametrize("failures, should_terminate", [(1, False), (2, True)])
+def test_ordinary_timeout_still_uses_existing_failure_threshold(parent, monitor, failures, should_terminate):
+    for _ in range(failures):
+        monitor.queue_handler.handle(
+            logging.makeLogRecord(
+                {
+                    "msg": "Averaging parameters failed with <class 'TimeoutError'>",
+                }
+            )
+        )
+    # Stop after processing the queued messages, without depending on thread timing.
+    original_get = monitor._log_queue.get
+    remaining = failures
+
+    def get_and_stop(**kwargs):
+        nonlocal remaining
+        record = original_get(**kwargs)
+        remaining -= 1
+        if remaining == 0:
+            monitor._stop_event.set()
+        return record
+
+    monitor._log_queue.get = get_and_stop
+    monitor.run()
+    assert parent.killpg.called == should_terminate
+    parent.exit_process.assert_not_called()
