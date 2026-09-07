@@ -42,6 +42,12 @@ from agora_server.types import (
 
 
 logger = get_logger(__name__)
+_AR_TIMEOUT_GRACE = 5.0
+_AR_TIMEOUT_MESSAGE = "State averaging still pending after timeout grace period"
+
+
+class _UnfinishedAllreduceError(RuntimeError):
+    """The child may still own the tensors; wait for the log monitor to stop the worker."""
 
 
 TStateAverager = TypeVar("TStateAverager", bound="TrainingStateAverager")
@@ -146,6 +152,7 @@ class TrainingStateAverager(DecentralizedAverager):
         self.step_executor = ThreadPoolExecutor(max_workers=2 if self.delta_rule_averaging else 1)
         self.finished_optimizer_step = threading.Event()
         self.finished_averaging_round = threading.Event()
+        self._averaging_failed = False
         self.lock_optimizer = threading.Lock()
         self.lock_averaging = threading.Lock()
         self.pending_updates = set()
@@ -392,6 +399,8 @@ class TrainingStateAverager(DecentralizedAverager):
             set_to_none (bool, optional): If True, zero_grad sets local gradients to None instead of zero tensors. Defaults to True.
             averaging_opts (dict[str, Any] | None, optional): A dict of keyword arguments forwarded into averaging round. Defaults to None.
         """
+        if self._averaging_failed:
+            raise _UnfinishedAllreduceError(_AR_TIMEOUT_MESSAGE)
         if delay_averaging is None:
             delay_averaging = delay_optimizer_step
         should_wait = averaging_round or optimizer_step or zero_grad if self.delta_rule_averaging else averaging_round
@@ -436,6 +445,10 @@ class TrainingStateAverager(DecentralizedAverager):
         for finished_update in finished_updates:
             if finished_update.cancelled() or finished_update.exception():
                 logger.log(self.status_loglevel, f"Background update failed: {finished_update}")
+
+        # The background wait may have failed while this call was waiting for updates.
+        if self._averaging_failed:
+            raise _UnfinishedAllreduceError(_AR_TIMEOUT_MESSAGE)
 
         if apply_delayed_updates:
             if self.finished_averaging_round.is_set():
@@ -502,6 +515,25 @@ class TrainingStateAverager(DecentralizedAverager):
 
         return output
 
+    def _wait_for_averaging(self, averaging_control: StepControl, timeout: float | None):
+        try:
+            return averaging_control.result(timeout=timeout)
+        except TimeoutError:
+            if averaging_control.done():
+                raise  # The child finished with an error; retain ordinary recovery.
+
+        # A parent wait timeout does not stop the child or release its tensor lock.
+        # Do not cancel the control: that would hide the unfinished operation.
+        try:
+            return averaging_control.result(timeout=_AR_TIMEOUT_GRACE)
+        except TimeoutError:
+            if averaging_control.done():
+                raise
+
+        self._averaging_failed = True
+        logger.error(_AR_TIMEOUT_MESSAGE)
+        raise _UnfinishedAllreduceError(_AR_TIMEOUT_MESSAGE)
+
     def _do(
         self,
         wait_for_trigger: Callable[[], Any] | None,
@@ -518,6 +550,8 @@ class TrainingStateAverager(DecentralizedAverager):
 
         This method is meant to be called in the background executor.
         """
+        if self._averaging_failed:
+            raise _UnfinishedAllreduceError(_AR_TIMEOUT_MESSAGE)
         if averaging_control is not None and (averaging_control.triggered or averaging_control.done()):
             logger.log(self.status_loglevel, f"Discarding failed matchmaking results: {averaging_control}")
             averaging_control = None
@@ -587,8 +621,10 @@ class TrainingStateAverager(DecentralizedAverager):
                     logger.info(f"All-reduce round started at local epoch #{self.local_epoch}")
                     try:
                         averaging_control.allow_allreduce()
-                        gathered = averaging_control.result(timeout=timeout)
+                        gathered = self._wait_for_averaging(averaging_control, timeout)
                         logger.log(self.status_loglevel, f"Averaged parameters with {len(gathered)} peers")
+                    except _UnfinishedAllreduceError:
+                        raise
                     except BaseException as e:
                         logger.log(self.status_loglevel, f"Averaging parameters failed with {type(e)}")
                         # A control still in matchmaking runs forever and wedges the next delayed-update apply.
@@ -608,6 +644,9 @@ class TrainingStateAverager(DecentralizedAverager):
                         logger.log(self.status_loglevel, f"Found peer with newer epoch ({self.local_epoch})")
                         self._update_scheduler()
 
+        except _UnfinishedAllreduceError:
+            # Leave finished_averaging_round unset: the monitor owns termination.
+            raise
         except Exception as e:
             if not began_running:
                 logger.error(f"Aborted {self.__class__.__name__}.step because wait_for_trigger raised exception")
