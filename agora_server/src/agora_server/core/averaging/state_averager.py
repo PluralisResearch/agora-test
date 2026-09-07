@@ -12,6 +12,8 @@
 """An extension of averager that supports common optimization use cases."""
 
 import logging
+import os
+import signal
 import threading
 import time
 
@@ -42,6 +44,7 @@ from agora_server.types import (
 
 
 logger = get_logger(__name__)
+_AR_TIMEOUT_GRACE = 5.0
 
 
 TStateAverager = TypeVar("TStateAverager", bound="TrainingStateAverager")
@@ -502,6 +505,29 @@ class TrainingStateAverager(DecentralizedAverager):
 
         return output
 
+    def _wait_for_averaging(self, averaging_control: StepControl, timeout: float | None):
+        try:
+            return averaging_control.result(timeout=timeout)
+        except TimeoutError:
+            if averaging_control.done():
+                raise  # The child finished with an error; retain ordinary recovery.
+
+        # A parent wait timeout does not stop the child or release its tensor lock.
+        # Do not cancel the control: that would hide the unfinished operation.
+        try:
+            return averaging_control.result(timeout=_AR_TIMEOUT_GRACE)
+        except TimeoutError:
+            if averaging_control.done():
+                raise
+
+        logger.critical("All-reduce still pending after timeout grace period; terminating worker process group")
+        try:
+            os.killpg(os.getpgrp(), signal.SIGTERM)
+        finally:
+            # SystemExit only stops this executor thread. Stop the worker even if
+            # SIGTERM is intercepted, without cleanup that may wait on the tensor lock.
+            os._exit(1)
+
     def _do(
         self,
         wait_for_trigger: Callable[[], Any] | None,
@@ -587,8 +613,10 @@ class TrainingStateAverager(DecentralizedAverager):
                     logger.info(f"All-reduce round started at local epoch #{self.local_epoch}")
                     try:
                         averaging_control.allow_allreduce()
-                        gathered = averaging_control.result(timeout=timeout)
+                        gathered = self._wait_for_averaging(averaging_control, timeout)
                         logger.log(self.status_loglevel, f"Averaged parameters with {len(gathered)} peers")
+                    except SystemExit:
+                        raise
                     except BaseException as e:
                         logger.log(self.status_loglevel, f"Averaging parameters failed with {type(e)}")
                         # A control still in matchmaking runs forever and wedges the next delayed-update apply.
