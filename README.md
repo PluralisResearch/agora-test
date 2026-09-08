@@ -21,6 +21,10 @@
     <a href="https://pluralis.ai/docs/"><img alt="Docs"
     src="https://img.shields.io/badge/Docs-Website-C76e00"/></a>    
 </div>
+
+<div align="center">
+    <img src="images/run-concluded-banner.svg" alt="The 13B System Test has concluded. Over the course of the run we hit a peak of 370 concurrent GPUs and a max of 255k TPS. We thank all the contributors!" width="760" style="max-width: 100%"/>
+</div>
 <!-- docs-exclude-end -->
 
 ## ✨ Description
